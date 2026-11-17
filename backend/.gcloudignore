@@ -1,0 +1,16 @@
+# Archivos que NO se suben a Cloud Run con "gcloud run deploy --source ."
+.git/
+.github/
+.claude/
+.githooks/
+docs/
+tests/
+legacy/
+scripts/
+*.md
+.env
+.env.*
+__pycache__/
+plantillas_config/
+despliegue/
+dist/

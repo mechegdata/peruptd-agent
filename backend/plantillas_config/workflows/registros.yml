@@ -1,0 +1,43 @@
+# Leer los registros (logs) del bot desde cualquier lugar: Actions > "Ver registros" > Run workflow.
+name: Ver registros
+
+on:
+  workflow_dispatch:
+    inputs:
+      minutos:
+        description: "Cuántos minutos hacia atrás"
+        default: "60"
+      filtro:
+        description: "Texto a buscar (opcional), p. ej. 51900000000 o 'NO entregó'"
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+# Identificadores de la conexión GitHub ↔ Google Cloud (no son secretos; los imprime scripts/conectar_github_gcp.sh).
+# Una variable de repositorio con el mismo nombre los reemplaza.
+env:
+  GCP_WIF_PROVIDER: projects/000000000000/locations/global/workloadIdentityPools/github/providers/github
+  GCP_SERVICE_ACCOUNT: github-deployer@your-gcp-project.iam.gserviceaccount.com
+
+jobs:
+  registros:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT || env.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Registros del bot
+        env:
+          MINUTOS: ${{ inputs.minutos }}
+          FILTRO: ${{ inputs.filtro }}
+        run: |
+          Q='resource.type="cloud_run_revision" AND resource.labels.service_name="sague-bot" AND severity=DEFAULT AND NOT textPayload:"gunicorn" AND NOT textPayload:"/cron"'
+          if [ -n "$FILTRO" ]; then Q="$Q AND textPayload:\"$FILTRO\""; fi
+          gcloud logging read "$Q" --project sague-bot --freshness="${MINUTOS}m" --limit=500 --order=asc \
+            --format='value(timestamp.date("%d/%m %H:%M:%S", tz="America/Lima"),textPayload)'
+      - name: Revisiones y tráfico
+        run: gcloud run revisions list --service sague-bot --project sague-bot --region us-central1 --limit 5

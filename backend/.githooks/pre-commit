@@ -1,0 +1,9 @@
+#!/bin/sh
+# Regenera la documentación automática antes de cada commit y la incluye en el mismo commit.
+PY=$(command -v python3 || command -v python)
+if [ -z "$PY" ]; then
+  echo "pre-commit: no se encontró Python; se omite la regeneración de docs." >&2
+  exit 0
+fi
+"$PY" scripts/generar_contexto.py --silencioso || exit 1
+git add docs/CONTEXTO_AUTO.md .env.example

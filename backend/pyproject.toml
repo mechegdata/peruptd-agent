@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+# La raíz (paquete bot/) y tests/ (simulador.py) deben ser importables al correr pytest desde cualquier lugar
+pythonpath = [".", "tests"]
+testpaths = ["tests"]

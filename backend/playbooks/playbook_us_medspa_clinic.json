@@ -1,0 +1,13 @@
+{
+  "tenant": "demo-us-medspa",
+  "industria": "dental",
+  "idioma_por_defecto": "en",
+  "negocio": {"nombre": "BrightSmile Dental Studio", "bot": "Mia", "asesor": "Dr. Laura Kim", "direccion": "820 Brickell Ave, Suite 400, Miami, FL"},
+  "frases_prohibidas": ["guaranteed results", "painless", "100% success", "cure", "no risk", "diagnose", "you need surgery", "insurance will cover it"],
+  "precio_minimo_negociable": 15500,
+  "interruptores": {"enable_free_ct_scan": true, "enable_carecredit": true},
+  "crm": {"etapas": {"new": "New Inquiry", "qualified": "Qualified", "booked": "Consult Booked", "visited": "Consult Completed",
+                     "negotiation": "Treatment Plan Sent", "no_show": "No-Show", "won": "Treatment Accepted", "lost": "Not Proceeding"},
+          "empresa_por_defecto": "Patient", "asunto_cita": "Consultation — {nombre}"},
+  "agenda": {"nombre_evento_es": "evaluación", "nombre_evento_en": "consultation"}
+}

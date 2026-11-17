@@ -1,0 +1,13 @@
+{
+  "tenant": "demo-us-realestate",
+  "industria": "realestate",
+  "idioma_por_defecto": "en",
+  "negocio": {"nombre": "Maple Ridge Residences", "bot": "Ava", "asesor": "Daniel Brooks", "direccion": "1250 Maple Ridge Dr, Austin, TX"},
+  "frases_prohibidas": ["guaranteed approval", "no credit check", "best investment ever", "prices will double", "act now or lose", "steal of a deal"],
+  "precio_minimo_negociable": 465000,
+  "interruptores": {"enable_72h_hold": true, "enable_closing_cost_credit": false},
+  "crm": {"etapas": {"new": "Open - Not Contacted", "qualified": "Working - Contacted", "booked": "Working - Contacted",
+                     "visited": "Working - Contacted", "negotiation": "Working - Contacted", "won": "Closed - Converted", "lost": "Closed - Not Converted"},
+          "empresa_por_defecto": "Individual", "asunto_cita": "Showing — Maple Ridge — {nombre}"},
+  "agenda": {"nombre_evento_es": "visita", "nombre_evento_en": "showing"}
+}

@@ -1,0 +1,39 @@
+# Volver a una versión anterior del bot en segundos (sin redesplegar): Actions > "Revertir versión".
+name: Revertir versión
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "Nombre de la revisión (p. ej. sague-bot-00036-4wq). Vacío = la anterior a la actual"
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+# Identificadores de la conexión GitHub ↔ Google Cloud (no son secretos; los imprime scripts/conectar_github_gcp.sh).
+# Una variable de repositorio con el mismo nombre los reemplaza.
+env:
+  GCP_WIF_PROVIDER: projects/000000000000/locations/global/workloadIdentityPools/github/providers/github
+  GCP_SERVICE_ACCOUNT: github-deployer@your-gcp-project.iam.gserviceaccount.com
+
+jobs:
+  revertir:
+    runs-on: ubuntu-latest
+    environment: produccion
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT || env.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - env:
+          REV: ${{ inputs.revision }}
+        run: |
+          if [ -z "$REV" ]; then
+            REV=$(gcloud run revisions list --service sague-bot --project sague-bot --region us-central1 \
+                  --sort-by=~metadata.creationTimestamp --format='value(metadata.name)' --limit 2 | tail -1)
+          fi
+          echo "Enviando el 100% del tráfico a $REV"
+          gcloud run services update-traffic sague-bot --to-revisions="$REV=100" --project sague-bot --region us-central1

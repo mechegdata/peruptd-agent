@@ -1,0 +1,8 @@
+flask>=3.0
+gunicorn>=22.0
+requests>=2.31
+supabase>=2.4
+google-auth>=2.29
+google-api-python-client>=2.120
+pillow>=10.0
+pydantic>=2.6

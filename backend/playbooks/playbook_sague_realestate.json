@@ -1,0 +1,18 @@
+{
+  "tenant": "sague",
+  "industria": "realestate",
+  "idioma_por_defecto": "es",
+  "negocio": {"nombre": "SAGUE Constructora", "bot": "Asesor SAGUE", "asesor": "Ing. Henry Guevara",
+              "direccion": "Urb. Santa Teresa, Lambayeque (5 de Febrero y Andrés Lastres, frente a la loza deportiva)"},
+  "frases_prohibidas": ["remate", "ganga", "140,000", "$140", "ya está terminada", "crédito directo", "frente a parque", "¡Excelente elección!"],
+  "precio_minimo_negociable": 130000,
+  "interruptores": {"enable_structural_warranty": true, "enable_day5_melamine_sample": true, "enable_72h_arras_bonus": true},
+  "textos": {
+    "estado_casa": "ya está construida y con título en SUNARP",
+    "bono_reposteros": "La 1ra unidad incluye los reposteros de cocina instalados (Bono de Lanzamiento)"
+  },
+  "crm": {"etapas": {"new": "Nuevo", "qualified": "Calificado", "booked": "Visita Agendada", "visited": "Visitó",
+                     "negotiation": "En Negociación Día 10", "no_show": "No Asistió", "won": "Vendido", "lost": "Descartado"},
+          "empresa_por_defecto": "Persona natural", "asunto_cita": "Visita Santa Teresa - {nombre}"},
+  "agenda": {"nombre_evento_es": "visita", "nombre_evento_en": "showing"}
+}

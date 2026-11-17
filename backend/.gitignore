@@ -1,0 +1,23 @@
+# Secretos
+.env
+*.env.local
+credenciales*.json
+service-account*.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Generado
+despliegue/
+dist/
+.claude/settings.local.json

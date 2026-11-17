@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:   # en cada propuesta de cambio (PR); el push a main lo prueba desplegar.yml
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt pytest
+      - name: Documentación automática al día
+        run: python scripts/generar_contexto.py --check
+      - name: Compila
+        run: python -m compileall -q bot main.py
+      - name: Pruebas
+        shell: bash
+        run: |
+          set -o pipefail
+          # Las fallas salen también como avisos (::error::) para leerlas sin abrir el registro completo
+          pytest -q -rf --tb=line 2>&1 | tee salida_pytest.txt || { grep -E "^(FAILED|ERROR)|^/.*:[0-9]+: " salida_pytest.txt | head -20 | sed 's/^/::error::/'; exit 1; }

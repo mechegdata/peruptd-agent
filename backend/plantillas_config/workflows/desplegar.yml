@@ -1,0 +1,72 @@
+# Despliegue automático: cada push a "main" corre las pruebas y, si pasan, despliega a Cloud Run.
+name: Desplegar a Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**.md']
+  workflow_dispatch:
+
+concurrency:
+  group: desplegar
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # para entrar a Google Cloud sin claves (Workload Identity Federation)
+
+# Identificadores de la conexión GitHub ↔ Google Cloud (no son secretos; los imprime scripts/conectar_github_gcp.sh).
+# Una variable de repositorio con el mismo nombre los reemplaza.
+env:
+  GCP_WIF_PROVIDER: projects/000000000000/locations/global/workloadIdentityPools/github/providers/github
+  GCP_SERVICE_ACCOUNT: github-deployer@your-gcp-project.iam.gserviceaccount.com
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest
+      - run: python scripts/generar_contexto.py --check || echo "::warning::docs/CONTEXTO_AUTO.md desactualizado (no bloquea el despliegue)"
+      - run: python -m compileall -q bot main.py
+      - name: Pruebas
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest -q -rf --tb=line 2>&1 | tee salida_pytest.txt || { grep -E "^(FAILED|ERROR)|^/.*:[0-9]+: " salida_pytest.txt | head -20 | sed 's/^/::error::/'; exit 1; }
+
+  desplegar:
+    needs: pruebas
+    runs-on: ubuntu-latest
+    environment: produccion
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER || env.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT || env.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Desplegar (las variables de entorno del servicio se conservan)
+        run: |
+          gcloud run deploy sague-bot --source . --project sague-bot --region us-central1 \
+            --allow-unauthenticated --quiet
+      - name: Verificar que responde
+        run: |
+          URL=$(gcloud run services describe sague-bot --project sague-bot --region us-central1 --format='value(status.url)')
+          for i in 1 2 3 4 5 6; do
+            CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "$URL/")
+            echo "Intento $i: HTTP $CODIGO"
+            [ "$CODIGO" = 200 ] && exit 0
+            sleep 10
+          done
+          echo "::error::El bot no respondió 200 en / (último código: $CODIGO)"
+          exit 1
+      - name: Revisar errores del arranque
+        run: |
+          REV=$(gcloud run services describe sague-bot --project sague-bot --region us-central1 --format='value(status.latestReadyRevisionName)')
+          echo "Revisión activa: $REV"
+          gcloud logging read "resource.type=cloud_run_revision AND resource.labels.revision_name=$REV AND (textPayload:Traceback OR severity>=ERROR)" \
+            --project sague-bot --freshness=10m --limit=20 --format='value(timestamp,textPayload)'
