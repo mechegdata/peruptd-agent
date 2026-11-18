@@ -4,14 +4,17 @@
 const Live = (() => {
   const store = { get: (k) => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } },
                   set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) { /* storage blocked */ } } };
-  const cfg = { base: store.get("ptd.hub.base"), key: store.get("ptd.hub.key"), on: false, estado: null, leads: [], sender: null, error: "" };
+  const cfg = { base: store.get("ptd.hub.base"), key: store.get("ptd.hub.key"), tenant: store.get("ptd.hub.tenant"), cookie: false, on: false, estado: null, leads: [], sender: null, error: "" };
   const CRM_KEY = { peruptd_native: "native", salesforce: "salesforce", hubspot: "hubspot", pipedrive: "pipedrive", zoho: "zoho" };
   const COLS = { list_price: "list_price", cash_price: "cash_price", min_down_pct: "min_down_payment_pct", rec_down_pct: "recommended_down_payment_pct",
                  annual_rate_pct: "annual_rate_pct", max_term_years: "max_term_years" };
   const hue = (s) => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
 
   async function api(path, opts = {}) {
-    const r = await fetch(cfg.base.replace(/\/$/, "") + path, { ...opts, headers: { "Content-Type": "application/json", "X-Hub-Key": cfg.key, ...(opts.headers || {}) } });
+    // same-origin with a CRM session (cookie + CSRF header) or machine access (X-Hub-Key + X-Tenant-Id)
+    const auth = cfg.cookie ? { "X-PTD-CSRF": "1" } : { "X-Hub-Key": cfg.key, "X-Tenant-Id": cfg.tenant };
+    const r = await fetch(cfg.base.replace(/\/$/, "") + path, { credentials: cfg.cookie ? "same-origin" : "omit", ...opts,
+      headers: { "Content-Type": "application/json", ...auth, ...(opts.headers || {}) } });
     if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 160)}`);
     return r.status === 204 ? null : r.json();
   }
@@ -28,8 +31,8 @@ const Live = (() => {
       insurance: r.insurance_es ? { es: r.insurance_es, en: r.insurance_en || r.insurance_es } : undefined, media: (r.media || []).map(mapMedia) };
   }
 
-  async function conectar(base, key) {
-    if (base !== undefined) { cfg.base = base.trim(); cfg.key = key.trim(); }
+  async function conectar(base, key, tenantId) {
+    if (base !== undefined) { cfg.base = base.trim(); cfg.key = key.trim(); cfg.tenant = (tenantId || "").trim(); cfg.cookie = false; }
     cfg.error = "";
     try {
       const est = await api("/api/hub/estado");
@@ -41,7 +44,7 @@ const Live = (() => {
         items: items.length ? items : plantilla.items, seed: [] };
       cfg.estado = est; cfg.on = true;
       cfg.sender = "hub:+1999" + String(Math.floor(1e6 + Math.random() * 9e6));
-      store.set("ptd.hub.base", cfg.base); store.set("ptd.hub.key", cfg.key);
+      if (!cfg.cookie) { store.set("ptd.hub.base", cfg.base); store.set("ptd.hub.key", cfg.key); store.set("ptd.hub.tenant", cfg.tenant); }
       S.ind = "live"; S.crm = crmKey; S.lang = est.default_language === "en" ? "en" : S.lang; S.logs = [];
       newLead(); await cargarLeads();
       return true;
@@ -53,7 +56,7 @@ const Live = (() => {
   }
 
   function desconectar() {
-    cfg.on = false; cfg.estado = null; store.set("ptd.hub.base", ""); store.set("ptd.hub.key", "");
+    cfg.on = false; cfg.estado = null; store.set("ptd.hub.base", ""); store.set("ptd.hub.key", ""); store.set("ptd.hub.tenant", ""); cfg.cookie = false;
     delete INDUSTRIES.live; S.ind = "realestate"; S.crm = "salesforce"; S.logs = []; newLead();
   }
 
@@ -100,16 +103,17 @@ const Live = (() => {
   }
 
   async function accion(senderId, nombre) {
-    const r = await api(`/api/hub/leads/${encodeURIComponent(senderId)}/accion`, { method: "POST", body: JSON.stringify({ accion: nombre }) });
+    const r = await api(`/api/hub/leads/${encodeURIComponent(senderId)}/comando`, { method: "POST", body: JSON.stringify({ comando: nombre }) });
     await cargarLeads();
     return r;
   }
 
   async function arrancar() {
-    if (cfg.base && cfg.key) return conectar();
+    if (new URLSearchParams(location.search).has("demo")) return false;      // /app?demo=1: pure recording demo
+    if (cfg.base && cfg.key && cfg.tenant) return conectar();
     if (/^https?:/.test(location.protocol) && /\/hub\/?$/.test(location.pathname)) {
-      cfg.base = location.origin;               // served by the backend itself: only the key is missing
-      return false;
+      cfg.base = location.origin;               // served by the backend: reuse the CRM session if there is one
+      try { const r = await fetch("/api/hub/me", { credentials: "same-origin" }); if (r.ok) { cfg.cookie = true; return conectar(); } } catch (e) { /* no session */ }
     }
     return false;
   }
@@ -127,17 +131,18 @@ function renderLivePanel() {
   const L = S.lang === "es";
   const base = el("input", { id: "live-base", type: "url", placeholder: "https://agent.example.run.app", value: Live.cfg.base, "aria-label": "Backend URL" });
   const key = el("input", { id: "live-key", type: "password", placeholder: "HUB_API_KEY", value: Live.cfg.key, "aria-label": "Hub API key" });
+  const ten = el("input", { id: "live-tenant", type: "text", placeholder: "demo-realestate", value: Live.cfg.tenant, "aria-label": "Tenant id" });
   const estado = el("p", { class: "live-msg" }, Live.cfg.on ? `✅ ${L ? "Conectado a" : "Connected to"} ${Live.cfg.estado.name} · ${Live.cfg.estado.crm_type} · ${Live.cfg.estado.catalog_items} ${L ? "productos" : "products"}`
     : Live.cfg.error ? `⚠ ${Live.cfg.error}` : (L ? "Sin backend: el Hub usa los datos de demostración." : "No backend: the Hub is using built-in demo data."));
   const panel = el("div", { class: "live-panel", id: "live-panel", role: "dialog", "aria-label": "Live API" },
     el("h3", {}, L ? "Modo API en vivo" : "Live API Mode"),
-    el("label", {}, L ? "URL del backend" : "Backend URL", base), el("label", {}, "HUB_API_KEY", key), estado,
+    el("label", {}, L ? "URL del backend" : "Backend URL", base), el("label", {}, "HUB_API_KEY", key), el("label", {}, "Tenant ID", ten), estado,
     el("div", { class: "controls" },
-      el("button", { class: "btn primary small", onclick: async () => { estado.textContent = "…"; const ok = await Live.conectar(base.value, key.value); render(); if (!ok) { renderLivePanel(); } } }, L ? "Conectar" : "Connect"),
+      el("button", { class: "btn primary small", onclick: async () => { estado.textContent = "…"; const ok = await Live.conectar(base.value, key.value, ten.value); render(); if (!ok) { renderLivePanel(); } } }, L ? "Conectar" : "Connect"),
       Live.cfg.on ? el("button", { class: "btn small", onclick: () => { Live.desconectar(); render(); } }, L ? "Volver a la demo" : "Back to demo") : null,
       el("button", { class: "btn small", onclick: () => $("#live-panel").remove() }, L ? "Cerrar" : "Close")),
-    el("p", { class: "live-note" }, L ? "Dentro de claude.ai la página no puede llamar a otros dominios: usa el Hub servido por tu backend en /hub."
-      : "Inside claude.ai the page can't call other domains: use the Hub served by your backend at /hub."));
+    el("p", { class: "live-note" }, L ? "Dentro de claude.ai la página no puede llamar a otros dominios: usa el Hub servido por tu backend en /hub (o entra a /app)."
+      : "Inside claude.ai the page can't call other domains: use the Hub served by your backend at /hub (or log in at /app)."));
   const prev = $("#live-panel"); if (prev) prev.remove();
   document.body.append(panel);
 }

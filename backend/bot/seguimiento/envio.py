@@ -8,6 +8,7 @@ from bot.canales.material import send_requested_wa_media
 from bot.canales.twilio_adapter import sin_ventana_24h
 from bot.canales.whatsapp import send_wa_text
 from bot.config import GRAPH_URL, TPL, VENTANA_WA_HORAS, WA_PHONE_ID, WA_TOKEN
+from bot.datos.leads import tabla
 from bot.db import supabase
 from bot.utils.fechas import _ahora, _ts
 from bot.utils.telefono import destino_wa
@@ -16,7 +17,7 @@ from bot.utils.telefono import destino_wa
 def _guardar_historial(phone, texto):
     if supabase:
         try:
-            supabase.table("mensajes").insert([{"sender_id": phone, "canal": "whatsapp_seguimiento", "rol": "assistant", "contenido": texto}]).execute()
+            tabla("mensajes").insert([{"sender_id": phone, "canal": "whatsapp_seguimiento", "rol": "assistant", "contenido": texto, "motor": "Seguimiento"}]).execute()
         except Exception as e:
             print("Error guardando seguimiento en historial:", e)
 

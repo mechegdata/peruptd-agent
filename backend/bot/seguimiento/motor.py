@@ -11,7 +11,7 @@ from bot.config import HORARIO_PRUDENTE, LIMA_TZ, MAPS_URL, OWNER_WA, PRECIO_LIS
 from bot.conversacion.recursos import elegir_fotos
 from bot.conversacion.slots import _dos_horarios
 from bot.crm import sincronizar_seguro
-from bot.datos.leads import safe_upsert_lead
+from bot.datos.leads import safe_upsert_lead, tabla
 from bot.db import supabase
 from bot.nlp.financiamiento import resumen_financiero
 from bot.nlp.patrones import DESPEDIDA_RE, POSTERGAR_RE
@@ -156,7 +156,7 @@ def ejecutar_seguimientos():
         return {"error": "sin supabase"}
     desde = (datetime.now(timezone.utc) - timedelta(days=16)).isoformat()
     try:
-        leads = supabase.table("leads").select("*").gte("updated_at", desde).execute().data or []
+        leads = tabla("leads").select("*").gte("updated_at", desde).execute().data or []
     except Exception as e:
         print("Error leyendo leads para seguimiento:", e)
         return {"error": str(e)}

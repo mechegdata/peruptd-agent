@@ -2,8 +2,47 @@
 import json
 from datetime import datetime, timezone
 
+from bot import tenant
+from bot.config import MULTI_TENANT
 from bot.db import supabase
 from bot.utils.telefono import id_legado
+
+
+def tabla(nombre):
+    """Consulta sobre leads / mensajes filtrada por el tenant actual cuando hay varios clientes en el mismo Supabase."""
+    return _Filtrada(supabase.table(nombre))
+
+
+class _Filtrada:
+    def __init__(self, t):
+        self.t = t
+
+    def select(self, *a, **k):
+        q = self.t.select(*a, **k)
+        return q.eq("tenant_id", tenant.tid()) if MULTI_TENANT else q
+
+    def update(self, *a, **k):
+        q = self.t.update(*a, **k)
+        return q.eq("tenant_id", tenant.tid()) if MULTI_TENANT else q
+
+    def delete(self):
+        q = self.t.delete()
+        return q.eq("tenant_id", tenant.tid()) if MULTI_TENANT else q
+
+    def insert(self, filas, **k):
+        return self.t.insert(con_tenant(filas), **k)
+
+
+def con_tenant(filas):
+    """Agrega tenant_id a las filas a insertar (solo con MULTI_TENANT). Sin el esquema nuevo, quita las columnas que
+    la base de SAGUE no tiene (motor), para no romper el historial del bot en producción."""
+    if not MULTI_TENANT:
+        if isinstance(filas, list):
+            return [{k: v for k, v in f.items() if k != "motor"} for f in filas]
+        return {k: v for k, v in filas.items() if k != "motor"}
+    if isinstance(filas, list):
+        return [{**f, "tenant_id": f.get("tenant_id") or tenant.tid()} for f in filas]
+    return {**filas, "tenant_id": filas.get("tenant_id") or tenant.tid()}
 
 _MIGRADOS = set()
 
@@ -16,10 +55,10 @@ def migrar_id_legado(sender_id):
         return
     _MIGRADOS.add(sender_id)
     try:
-        ya = supabase.table("leads").select("sender_id").eq("sender_id", sender_id).limit(1).execute()
+        ya = tabla("leads").select("sender_id").eq("sender_id", sender_id).limit(1).execute()
         if not ya.data:
-            supabase.table("leads").update({"sender_id": sender_id}).eq("sender_id", legado).execute()
-        supabase.table("mensajes").update({"sender_id": sender_id}).eq("sender_id", legado).execute()
+            tabla("leads").update({"sender_id": sender_id}).eq("sender_id", legado).execute()
+        tabla("mensajes").update({"sender_id": sender_id}).eq("sender_id", legado).execute()
     except Exception as e:
         print(f"No se pudo migrar el ID legado {legado} -> {sender_id}:", e)
 
@@ -28,11 +67,11 @@ def get_lead_by_sender_or_phone(sender_id, phone=None):
     if not supabase:
         return {}
     try:
-        res = supabase.table("leads").select("*").eq("sender_id", sender_id).limit(1).execute()
+        res = tabla("leads").select("*").eq("sender_id", sender_id).limit(1).execute()
         if res.data:
             return res.data[0]
         if phone:
-            res_p = supabase.table("leads").select("*").eq("telefono", phone).order("updated_at", desc=True).limit(1).execute()
+            res_p = tabla("leads").select("*").eq("telefono", phone).order("updated_at", desc=True).limit(1).execute()
             if res_p.data:
                 return res_p.data[0]
     except Exception:
@@ -63,13 +102,17 @@ def safe_upsert_lead(sender_id, canal, nombre=None, telefono=None, interes_dict=
         "ultimo_mensaje": (ultimo_msg or existing.get("ultimo_mensaje") or "")[:500],
         "updated_at": now_iso
     }
+    conflicto = "sender_id"
+    if MULTI_TENANT:
+        base_payload["tenant_id"] = tenant.tid()
+        conflicto = "tenant_id,sender_id"
     try:
         ext_payload = dict(base_payload)
         if "cita_agendada" in prev_meta:
             ext_payload["cita_agendada"] = bool(prev_meta["cita_agendada"])
-        supabase.table("leads").upsert(ext_payload, on_conflict="sender_id").execute()
+        supabase.table("leads").upsert(ext_payload, on_conflict=conflicto).execute()
     except Exception:
         try:
-            supabase.table("leads").upsert(base_payload, on_conflict="sender_id").execute()
+            supabase.table("leads").upsert(base_payload, on_conflict=conflicto).execute()
         except Exception as e:
             print("Supabase lead upsert error:", e)

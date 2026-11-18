@@ -85,3 +85,8 @@ Ver README.md de la raíz del proyecto. Mapa rápido:
 - `bot/canales/twilio_adapter.py` + `bot/rutas/twilio.py`: SMS/WhatsApp de Twilio (sender_id con prefijo `sms:` / `twa:`).
 - `bot/datos/colas.py`, `idempotencia.py`: dedupe y debounce persistentes (migración 002).
 - Regla: los motores nunca inventan cifras; todo precio sale de `catalog_items`. El LLM solo clasifica (Capa 1), no redacta.
+- CRM web `/app` (0.3.0): `bot/hub/sesion.py` (login, cookie firmada, CSRF, `requiere_sesion(rol)` que envuelve la ruta en
+  `tenant.usar`), rutas `hub_auth`, `hub_api`, `hub_catalogo`, `hub_config`; la página sale de `../hub` (`python hub/build.py`,
+  `hub/src/crm.js` = modo producción). Toda consulta nueva a leads/mensajes va por `datos.leads.tabla()` (filtra por tenant);
+  catálogo/playbook filtran con `.eq("tenant_id", tenant.tid())`. Pruebas con `tests/fake_supabase.py`.
+- Seguimiento `catalogo`: playbook → `seguimiento/plantillas_industria.py` → neutro. Mapeo CRM: `crm_adapters/mapeo.py`.

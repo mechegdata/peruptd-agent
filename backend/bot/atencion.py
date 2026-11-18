@@ -77,7 +77,7 @@ def atender_mensaje_wa(s, t, wa_profile_name, tipo, canal="whatsapp", espera_bas
         if not t:
             _sin_texto(s, tipo)
             return
-        if normalize_pe_phone(s) == normalize_pe_phone(OWNER_WA):
+        if normalize_pe_phone(s) in {normalize_pe_phone(OWNER_WA), normalize_pe_phone(tenant.actual().get("owner_whatsapp") or "")} - {None, ""}:
             resp_cmd = procesar_comando_asesor(t)
             if resp_cmd:
                 send_wa_text(s, resp_cmd)

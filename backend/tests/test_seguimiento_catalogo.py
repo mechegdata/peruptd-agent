@@ -65,14 +65,14 @@ def entorno():
                mock.patch.object(motor_catalogo, "send_wa_text", lambda d, t: enviados.append((d, t)) or True),
                mock.patch("bot.seguimiento.envio.send_wa_text", lambda d, t: enviados.append((d, t)) or True),
                mock.patch.object(motor_catalogo, "send_wa_media", lambda d, u, ti, c: medias.append(u) or True),
-               mock.patch.object(motor_catalogo, "alertar_asesor", alertas.append), mock.patch("bot.seguimiento.envio.alertar_asesor", alertas.append),
-               mock.patch.object(motor_catalogo, "get_free_slots", libres), mock.patch.object(motor_catalogo, "sincronizar_seguro"),
+               mock.patch.object(motor_catalogo, "alertar_asesor", lambda t, d=None: alertas.append(t)), mock.patch("bot.seguimiento.envio.alertar_asesor", alertas.append),
+               mock.patch.object(motor_catalogo, "libres_en_horario", libres), mock.patch.object(motor_catalogo, "en_silencio", return_value=False), mock.patch.object(motor_catalogo, "sincronizar_seguro"),
                mock.patch.object(motor_catalogo, "safe_upsert_lead", lambda s, c, n, t, meta, u: guardados.update({s: meta})),
                mock.patch("bot.seguimiento.envio.supabase", None), mock.patch.object(motor_catalogo, "_guardar_historial")]
     for p in parches:
         p.start()
     yield {"enviados": enviados, "medias": medias, "alertas": alertas, "guardados": guardados}
-    for p in parches:
+    for p in reversed(parches):
         p.stop()
 
 
@@ -136,3 +136,29 @@ def test_sague_legacy_no_usa_el_motor_nuevo():
          mock.patch.object(motor.motor_catalogo, "procesar") as nuevo:
         motor._procesar_lead_seguimiento({"sender_id": "51", "interes": json.dumps({"no_interesado": True})})
     nuevo.assert_not_called()
+
+
+@pytest.mark.parametrize("industria,idioma,palabra", [("realestate", "es", "planos"), ("realestate", "en", "floor plans"),
+                                                     ("dental", "es", "evaluación"), ("medspa", "en", "consultation"),
+                                                     ("b2b", "es", "propuesta"), ("b2b", "en", "proposal")])
+def test_plantillas_por_industria(industria, idioma, palabra):
+    from bot.seguimiento import plantillas_industria
+    with mock.patch.object(playbooks, "actual", return_value={}), \
+         mock.patch.object(plantillas.tenant, "actual", return_value={"industry": industria}):
+        t = plantillas.texto("post_45m", idioma, VARS)
+        assert palabra in t and "{" not in t
+        for clave in plantillas.CLAVES_EDITABLES:
+            assert "{" not in plantillas.texto(clave, idioma, VARS), clave
+    for fam in plantillas_industria.POR_INDUSTRIA.values():
+        for idi, textos in fam.items():
+            for clave, texto in textos.items():
+                assert clave in plantillas.DEFECTO["es"]
+                assert set(re.findall(r"\{(\w+)\}", texto)) <= set(VARS) | {"pago", "telefono"}, (idi, clave)
+
+
+def test_playbook_manda_sobre_la_industria_y_otra_industria_usa_neutro():
+    with mock.patch.object(playbooks, "actual", return_value={"seguimiento": {"es": {"post_45m": "Propio {producto}"}}}), \
+         mock.patch.object(plantillas.tenant, "actual", return_value={"industry": "dental"}):
+        assert plantillas.texto("post_45m", "es", VARS) == "Propio Casa A"
+    with mock.patch.object(playbooks, "actual", return_value={}), mock.patch.object(plantillas.tenant, "actual", return_value={"industry": "autos"}):
+        assert plantillas.texto_crudo("post_45m", "es") == plantillas.DEFECTO["es"]["post_45m"]

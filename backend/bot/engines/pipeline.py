@@ -4,8 +4,13 @@ la multimedia, las alertas y los cambios de estado. El envío, el calendario y e
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from bot.engines import agenda, finanzas, multimedia, objeciones
+import re
+
+from bot.engines import agenda, calificacion, finanzas, multimedia, objeciones
 from bot.engines.textos import L, campo, dinero, nombre
+
+
+CONDICIONES_RE = re.compile(r"\b(condiciones|requisitos|terminos|términos|requirements|terms|conditions|policy|politica)\b", re.I)
 
 
 @dataclass
@@ -48,7 +53,7 @@ def run(turno, estado, catalogo, tenant, buscar_libres=None, ahora=None):
         r.reservar = datetime.fromisoformat(ofrecidos[ent["selected_slot_index"] - 1])
         r.traza.append(("Agenda", f"opción {ent['selected_slot_index']} → {r.reservar.isoformat()}"))
         r.cambios.update(offered_slots=[], stage="booked")
-        triggers.append("LOCATION_FACADE")
+        triggers.append("LOCATION_MAP|LOCATION_FACADE")
         r.texto = ""  # el texto de confirmación lo pone agente.py cuando el calendario confirma
         r.media = multimedia.elegir(item, triggers, estado.get("sent_media_ids"))
         return r
@@ -101,7 +106,7 @@ def run(turno, estado, catalogo, tenant, buscar_libres=None, ahora=None):
         triggers.append("VIDEO_TOUR")
         partes.append(L(idioma, "Here's the video 🎬", "Aquí tienes el video 🎬"))
     if turno.tiene("LOCATION"):
-        triggers.append("LOCATION_FACADE")
+        triggers.append("LOCATION_MAP|LOCATION_FACADE")
         partes.append(f"📍 {item.get('location_address') or tenant.get('address', '')} — {item.get('google_maps_url') or ''}".rstrip(" —"))
 
     if turno.tiene("SCHEDULE") and buscar_libres:
@@ -109,6 +114,15 @@ def run(turno, estado, catalogo, tenant, buscar_libres=None, ahora=None):
         partes.append(agenda.texto_opciones(r.slots, ent, idioma, ahora.date()))
         r.cambios["offered_slots"] = [s.isoformat() for s in r.slots]
         r.traza.append(("Agenda", f"{len(r.slots)} horarios libres desde {ent.get('work_end_hour') or 'apertura'}"))
+
+    if CONDICIONES_RE.search(turno.clean_text) and campo(item, "conditions", idioma):
+        partes.append(campo(item, "conditions", idioma))
+        r.traza.append(("Condiciones", "condiciones del producto (catálogo)"))
+    pregunta = calificacion.siguiente_pregunta(item, estado, r.cambios, idioma, ya_pregunta=any("?" in p for p in partes) or bool(r.slots))
+    if pregunta:
+        partes.append(pregunta["texto"])
+        r.cambios["preguntas_filtro_hechas"] = pregunta["hechas"]
+        r.traza.append(("Calificación", f"{item.get('qualification_mode') or 'credito_inicial'} · pregunta {len(pregunta['hechas'])}"))
 
     etapa = estado.get("stage") or "new"
     if etapa == "new" and (r.cambios.get("payment_method") or r.cambios.get("stated_budget") or r.slots):

@@ -9,7 +9,7 @@ def responder(item, nivel, idioma, asesor):
     nivel = max(1, min(3, nivel))
     n = nombre(item, idioma)
     if nivel == 1:
-        return {"nivel": 1, "trigger": "PRICE_OBJECTION", "urgente": False,
+        return {"nivel": 1, "trigger": "PRICE_OBJECTION|PROOF_RESULTS", "urgente": False,
                 "alerta": L(idioma, f"Price objection 1/3 handled ({n}) — FYI", f"Objeción de precio 1/3 atendida ({n}) — para tu información"),
                 "texto": L(idioma, f"Totally fair to compare 🙂 {campo(item, 'value_comparison', 'en')}.", f"Es normal comparar 🙂 {campo(item, 'value_comparison', 'es')}.")}
     if nivel == 2:

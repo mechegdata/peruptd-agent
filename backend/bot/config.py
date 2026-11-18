@@ -234,3 +234,10 @@ CRM_SYNC_ACTIVO = os.environ.get("CRM_SYNC_ACTIVO", os.environ.get("SALESFORCE_A
 # --- AI Sales Hub en modo API en vivo (bot/rutas/hub_api.py). Sin HUB_API_KEY la API del Hub queda apagada ---
 HUB_API_KEY = os.environ.get("HUB_API_KEY", "")
 HUB_CORS_ORIGINS = [o.strip() for o in os.environ.get("HUB_CORS_ORIGINS", "").split(",") if o.strip()]  # si el Hub se sirve en otro dominio
+
+# --- PeruPTD Native CRM (web multi-cliente en /app) ---
+MULTI_TENANT = os.environ.get("MULTI_TENANT", "false").lower() == "true"     # true = varios clientes en el mismo Supabase (esquema 000)
+HUB_SESSION_SECRET = os.environ.get("HUB_SESSION_SECRET", "")                # firma de la cookie de sesión (obligatoria para /app)
+HUB_SESION_HORAS = int(os.environ.get("HUB_SESION_HORAS", "12"))
+HUB_COOKIE_SEGURA = os.environ.get("HUB_COOKIE_SEGURA", "true").lower() == "true"   # false solo para pruebas en http://localhost
+MAX_SUBIDA_MB = int(os.environ.get("MAX_SUBIDA_MB", "25"))                   # Cloud Run acepta hasta 32 MB por petición

@@ -162,3 +162,38 @@ def _sin_cache():
     tenant.limpiar_cache()
     yield
     tenant.limpiar_cache()
+
+
+# ---------- Mapeo flexible (tenants.crm_field_mapping_json) ----------
+def test_mapeo_vacio_usa_objetos_estandar_y_formato_antiguo_sigue_valiendo():
+    from bot.crm_adapters import mapeo
+    m = mapeo.efectivo({"crm_type": "salesforce", "crm_field_map": {"catalogo": {"cash_price": "Cash_Price__c"}, "event_attendance": "Att__c"}})
+    assert m["catalog"]["object"] == "Product2" and m["catalog"]["fields"]["cash_price"] == "Cash_Price__c" and m["event_attendance"] == "Att__c"
+    a = adaptador({"crm_type": "salesforce", "crm_field_mapping_json": {"lead": {"fields": {"presupuesto": "Budget__c"}}}})
+    assert a.campos["lead"] == {"presupuesto": "Budget__c"} and a.campos["catalogo"] == {}
+
+
+def test_salesforce_lee_catalogo_de_objeto_personalizado_y_escribe_campos_mapeados():
+    from bot.crm_adapters import salesforce as sfa
+    t = {"crm_type": "salesforce", "crm_field_mapping_json": {
+        "catalog": {"object": "Property__c", "active_field": "Listed__c",
+                    "fields": {"name_es": "Name", "list_price": "Price__c", "cash_price": "Cash__c", "keywords": "Tags__c", "category": None}},
+        "lead": {"fields": {"presupuesto": "Initial_Budget__c", "pago": "Payment_Method__c"}}}}
+    a = adaptador(t)
+    consultas = []
+    filas = [{"Id": "a01", "Name": "Lot 14", "Price__c": 129000, "Cash__c": 119000, "Tags__c": "lot, casa"}, {"Id": "a02", "Name": "Sin precio"}]
+    with mock.patch.object(sfa.sf, "consultar", side_effect=lambda q: consultas.append(q) or (filas if "Property__c" in q else [])):
+        items = a.listar_productos()
+    assert consultas[0] == "SELECT Id, Cash__c, Name, Price__c, Tags__c FROM Property__c WHERE Listed__c = true ORDER BY Name LIMIT 200"
+    assert items == [{"external_crm_id": "a01", "media": [], "name_es": "Lot 14", "list_price": 129000, "cash_price": 119000, "keywords": ["lot", "casa"]}]
+    with mock.patch.object(sfa.sf, "upsert_lead_from_chat", return_value="00Q1") as up:
+        a.sincronizar_lead({"nombre": "Ana", "telefono": "+1305", "presupuesto": 25000, "pago": "financed", "canal": "WhatsApp"})
+    assert up.call_args[0][2]["Initial_Budget__c"] == 25000 and up.call_args[0][2]["Payment_Method__c"] == "financed"
+
+
+def test_mapeo_rechaza_nombres_peligrosos():
+    from bot.crm_adapters import mapeo
+    assert mapeo.validar({"catalog": {"fields": {"list_price": "Price__c FROM User--"}}})[1]
+    assert mapeo.validar({"lead": {"fields": {"tarjeta": "Card__c"}}})[1]
+    assert mapeo.validar({"catalog": {"object": "Property__c", "fields": {"name_es": "Name", "list_price": "Price__c"}}}) == \
+        ({"catalog": {"object": "Property__c", "fields": {"name_es": "Name", "list_price": "Price__c"}}}, None)

@@ -14,7 +14,7 @@ from bot.crm import etapa_comercial, sincronizar_seguro, telefono_visible
 from bot.datos.leads import safe_upsert_lead
 from bot.engines import agenda, finanzas, multimedia
 from bot.engines.textos import campo, dinero, nombre as nombre_item
-from bot.integraciones.calendario import get_free_slots
+from bot.agente import libres_en_horario
 from bot.nlp.patrones import DESPEDIDA_RE, POSTERGAR_RE
 from bot.seguimiento import plantillas
 from bot.seguimiento.envio import _guardar_historial, enviar_seguimiento
@@ -26,9 +26,16 @@ TOQUES = [("post_45m", None), ("post_48h", timedelta(hours=48)), ("post_dia5", t
 TIPO_WA = {"image": "image", "pdf": "document", "video": "video"}
 
 
+def en_silencio(t, ahora):
+    """True dentro de la ventana de silencio del tenant (p. ej. 20:30 – 08:30, cruza la medianoche)."""
+    ini, fin = str(t.get("quiet_hours_start") or "20:30")[:5], str(t.get("quiet_hours_end") or "08:30")[:5]
+    hhmm = ahora.astimezone(LIMA_TZ).strftime("%H:%M")
+    return (hhmm >= ini or hhmm < fin) if ini > fin else (ini <= hhmm < fin)
+
+
 def _horarios(meta, idioma):
     """3 horarios reales libres; quedan guardados como offered_slots para que el cliente responda 1, 2 o 3."""
-    libres = agenda.proponer({}, get_free_slots, _ahora().astimezone(LIMA_TZ))
+    libres = agenda.proponer({}, libres_en_horario, _ahora().astimezone(LIMA_TZ))
     meta["offered_slots"] = [s.isoformat() for s in libres]
     hoy = _ahora().astimezone(LIMA_TZ).date()
     return "\n".join(f"{agenda.NUMEROS[i]} {agenda.etiqueta(s, idioma, hoy)}" for i, s in enumerate(libres))
@@ -91,7 +98,7 @@ def _post_visita(lead, meta, t, item, idioma, v, cita, ahora):
         if estado == "enviado":
             _enviar_media(lead, meta, item, clave)
         if clave == "post_dia10":
-            alertar_asesor(plantillas.texto("alerta_dia10", t.get("default_language") or "es", v))
+            alertar_asesor(plantillas.texto("alerta_dia10", t.get("default_language") or "es", v), t.get("owner_whatsapp"))
         if clave == "post_dia14":
             meta["etapa"] = "cerrado"
         pv["enviados"].append(clave)
@@ -156,6 +163,8 @@ def procesar(lead):
     t = tenant.actual()
     if re.sub(r"\D", "", telefono_visible(lead.get("sender_id"))) == re.sub(r"\D", "", str(t.get("owner_whatsapp") or "x")):
         return None
+    if en_silencio(t, _ahora()):
+        return None                     # horario de silencio nocturno del cliente (configurable en el CRM web)
     idioma = meta.get("preferred_language") or t.get("default_language") or "es"
     items = catalogo.items()
     item = next((i for i in items if str(i.get("id")) == str(meta.get("interested_catalog_item_id"))), items[0] if items else None)
@@ -183,7 +192,7 @@ def procesar(lead):
                 if meta.get("pregunta_owner_visita"):
                     meta["pregunta_owner_visita_2"] = ahora.isoformat()
                 meta["pregunta_owner_visita"] = meta.get("pregunta_owner_visita") or ahora.isoformat()
-                alertar_asesor(plantillas.texto("pregunta_asesor", t.get("default_language") or "es", v))
+                alertar_asesor(plantillas.texto("pregunta_asesor", t.get("default_language") or "es", v), t.get("owner_whatsapp"))
                 accion = "pregunta al asesor si hubo visita"
         elif estado_v == "realizada":
             accion = _post_visita(lead, meta, t, item, idioma, v, cita, ahora)

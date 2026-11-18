@@ -1,18 +1,20 @@
 """Plantillas de seguimiento por tenant e idioma (modo 'catalogo'): recordatorio, protocolo post-visita de 14 días
 (45 min, 48 h, día 5, día 10, día 14), no asistió y rescate de 24 h.
 
-Fuente, en orden: playbook["seguimiento"][idioma][clave] -> DEFECTO[idioma][clave] (textos neutros para cualquier
-industria). Cada toque se puede apagar con playbook["interruptores"]["seguimiento_<clave>"] = false.
+Fuente, en orden: playbook["seguimiento"][idioma][clave] (editable desde /app > Ajustes) -> plantilla de la industria
+del tenant (plantillas_industria: inmobiliaria, salud/clínicas, B2B) -> DEFECTO[idioma][clave] (textos neutros). Cada toque se puede apagar con playbook["interruptores"]["seguimiento_<clave>"] = false.
 Variables disponibles en los textos: {coma} (", Ana" o vacío), {nombre}, {empresa}, {asesor}, {producto}, {direccion},
 {mapa}, {evento}, {cuando}, {fecha}, {bono}, {valor}, {horarios}, {presupuesto}, {cuota}.
 SAGUE (modo 'sague_legacy') sigue usando bot/seguimiento/mensajes.py sin cambios."""
-from bot import playbooks
+from bot import playbooks, tenant
+from bot.seguimiento import plantillas_industria
 
 CLAVES_POST_VISITA = ("post_45m", "post_48h", "post_dia5", "post_dia10", "post_dia14")
 
 # Medios del catálogo que acompañan cada toque (catalog_media.trigger_moment)
-MEDIA_POR_TOQUE = {"post_45m": ["POST_VISIT_45M", "OPTION_RENDER"], "post_dia5": ["OPTION_RENDER", "VIDEO_TOUR"],
-                   "no_asistio": ["LOCATION_FACADE"], "rescate": ["RESCUE_24H", "OPTION_RENDER", "VIDEO_TOUR"]}
+MEDIA_POR_TOQUE = {"post_45m": ["POST_VISIT_45M|OPTION_RENDER|SPECS_PDF"], "post_dia5": ["OPTION_RENDER|PROOF_RESULTS|VIDEO_TOUR"],
+                   "post_dia10": ["PROOF_RESULTS"], "no_asistio": ["LOCATION_MAP|LOCATION_FACADE"],
+                   "rescate": ["RESCUE_24H|PROOF_RESULTS|OPTION_RENDER|VIDEO_TOUR"]}
 
 DEFECTO = {
     "es": {
@@ -72,8 +74,18 @@ def activo(clave):
     return playbooks.interruptor(f"seguimiento_{clave}", True)
 
 
-def texto(clave, idioma, variables):
+CLAVES_EDITABLES = tuple(k for k in DEFECTO["es"] if k != "pregunta_asesor")
+
+
+def texto_crudo(clave, idioma):
+    """La plantilla sin rellenar que se usaría hoy para este tenant (lo que muestra y edita /app)."""
     idioma = idioma if idioma in DEFECTO else "es"
-    plantilla = playbooks.valor(f"seguimiento.{idioma}.{clave}") or DEFECTO[idioma].get(clave) or DEFECTO["es"].get(clave, "")
+    return (playbooks.valor(f"seguimiento.{idioma}.{clave}")
+            or plantillas_industria.buscar(tenant.actual().get("industry"), idioma, clave)
+            or DEFECTO[idioma].get(clave) or DEFECTO["es"].get(clave, ""))
+
+
+def texto(clave, idioma, variables):
+    plantilla = texto_crudo(clave, idioma)
     limpio = plantilla.format_map(_Seguro({k: ("" if v is None else v) for k, v in variables.items()}))
     return "\n".join(l.rstrip() for l in limpio.split("\n")).replace(" .", ".").replace("  ", " ").strip()

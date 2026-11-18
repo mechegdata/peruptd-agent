@@ -37,14 +37,14 @@ def mundo():
                mock.patch.object(agente, "get_lead_by_sender_or_phone", lambda s, t=None: leads.get(s)), mock.patch.object(agente, "safe_upsert_lead", upsert),
                mock.patch.object(agente, "send_wa_text", lambda d, t: textos.append((d, t)) or True),
                mock.patch.object(agente, "send_wa_media", lambda d, u, tipo, c: medias.append((d, u)) or True),
-               mock.patch.object(agente, "alertar_asesor", alertas.append), mock.patch.object(agente, "get_free_slots", libres),
+               mock.patch.object(agente, "alertar_asesor", lambda t, d=None: alertas.append(t)), mock.patch.object(agente, "get_free_slots", libres),
                mock.patch.object(agente, "create_calendar_event", lambda *a, **k: eventos.append((a, k)) or (True, "ok", "EV1")),
                mock.patch.object(agente, "supabase", None), mock.patch.object(agente.NORMALIZADOR, "usar_llm", False),
                mock.patch.object(agente.playbooks, "valor", lambda ruta, defecto=None: ["remate"] if ruta == "frases_prohibidas" else defecto)]
     for p in parches:
         p.start()
     yield {"leads": leads, "textos": textos, "medias": medias, "alertas": alertas, "eventos": eventos}
-    for p in parches:
+    for p in reversed(parches):
         p.stop()
 
 

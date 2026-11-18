@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timezone
 
 from bot.config import PAUSA_BOT_TRAS_HUMANO_MIN
-from bot.datos.leads import get_lead_by_sender_or_phone, safe_upsert_lead
+from bot.datos.leads import get_lead_by_sender_or_phone, safe_upsert_lead, tabla
 from bot.db import supabase
 from bot.datos.idempotencia import ya_procesado
 from bot.estado import HUMANO_ACTIVO
@@ -19,13 +19,13 @@ def guardar_mensaje_manual(cliente_id, canal, texto, msg_id=None):
     if ya_procesado(msg_id, f"{canal}_eco"):
         return
     try:
-        res = supabase.table("mensajes").select("rol,contenido,created_at").eq("sender_id", cliente_id) \
+        res = tabla("mensajes").select("rol,contenido,created_at").eq("sender_id", cliente_id) \
             .order("created_at", desc=True).limit(6).execute()
         for prev in res.data or []:
             if prev.get("rol") == "assistant" and limpiar_texto(prev.get("contenido"))[:300] == limpiar_texto(texto)[:300]:
                 return  # es el eco de un mensaje del bot
-        supabase.table("mensajes").insert([
-            {"sender_id": cliente_id, "canal": f"{canal}_manual", "rol": "assistant", "contenido": texto}
+        tabla("mensajes").insert([
+            {"sender_id": cliente_id, "canal": f"{canal}_manual", "rol": "assistant", "contenido": texto, "motor": "Asesor (manual)"}
         ]).execute()
         print(f"Mensaje manual del asesor guardado para {cliente_id}: {texto[:80]!r}")
         try:

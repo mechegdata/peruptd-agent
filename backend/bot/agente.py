@@ -13,7 +13,7 @@ from bot.canales.alertas import alertar_asesor
 from bot.canales.whatsapp import send_wa_media, send_wa_text
 from bot.config import LIMA_TZ
 from bot.crm import telefono_visible
-from bot.datos.leads import get_lead_by_sender_or_phone, safe_upsert_lead
+from bot.datos.leads import get_lead_by_sender_or_phone, safe_upsert_lead, tabla
 from bot.db import supabase
 from bot.engines import agenda, guardas, pipeline
 from bot.engines.textos import L
@@ -29,27 +29,38 @@ def _alertar(sender_id, texto):
     if hub_bandeja.es_simulado(sender_id):
         hub_bandeja.guardar(sender_id, "alerta", texto)
     else:
-        alertar_asesor(texto)
+        alertar_asesor(texto, tenant.actual().get("owner_whatsapp"))
+
+
+def libres_en_horario(n=3, dia=None, filtro=None, excluir=None):
+    """Horarios libres del calendario dentro del horario de visitas del cliente (playbook agenda.horario_visitas)."""
+    h = playbooks.valor("agenda.horario_visitas") or {}
+    ini, fin, dias = h.get("inicio", "00:00"), h.get("fin", "23:59"), h.get("dias")
+
+    def dentro(dt):
+        hhmm = dt.strftime("%H:%M")
+        return ini <= hhmm <= fin and (dias is None or dt.weekday() in dias) and (filtro is None or filtro(dt))
+    return get_free_slots(n=n, dia=dia, filtro=dentro, excluir=excluir)
 
 
 def _historial(sender_id, n=8):
     if not supabase:
         return []
     try:
-        filas = supabase.table("mensajes").select("rol,contenido").eq("sender_id", sender_id).order("created_at", desc=True).limit(n).execute().data or []
+        filas = tabla("mensajes").select("rol,contenido").eq("sender_id", sender_id).order("created_at", desc=True).limit(n).execute().data or []
         return [{"rol": f["rol"], "texto": f["contenido"]} for f in reversed(filas)]
     except Exception:
         return []
 
 
-def _guardar_mensajes(sender_id, texto_cliente, texto_agente):
+def _guardar_mensajes(sender_id, texto_cliente, texto_agente, motores=""):
     if not supabase:
         return
     filas = [{"sender_id": sender_id, "canal": "whatsapp", "rol": "user", "contenido": texto_cliente}]
     if texto_agente:
-        filas.append({"sender_id": sender_id, "canal": "whatsapp", "rol": "assistant", "contenido": texto_agente})
+        filas.append({"sender_id": sender_id, "canal": "whatsapp", "rol": "assistant", "contenido": texto_agente, "motor": motores or None})
     try:
-        supabase.table("mensajes").insert(filas).execute()
+        tabla("mensajes").insert(filas).execute()
     except Exception as e:
         print("No se pudo guardar el historial:", e)
 
@@ -63,7 +74,7 @@ def _reservar(res, lead, meta, idioma, t):
                                                notas=f"PeruPTD AI Sales Agent · idioma {idioma}", titulo=f"{evento.capitalize()} - {nombre}",
                                                ubicacion=t.get("address"))
     if not ok:
-        libres = agenda.proponer({}, get_free_slots, datetime.now(LIMA_TZ))
+        libres = agenda.proponer({}, libres_en_horario, datetime.now(LIMA_TZ))
         return (L(idioma, "That time was just taken 😅 ", "Ese horario se acaba de ocupar 😅 ") + agenda.texto_opciones(libres, {}, idioma, datetime.now(LIMA_TZ).date()),
                 {"offered_slots": [s.isoformat() for s in libres], "stage": "qualified"})
     etiqueta = agenda.etiqueta(res.reservar, idioma, datetime.now(LIMA_TZ).date())
@@ -82,7 +93,7 @@ def atender_turno(sender_id, texto, perfil="", canal_origen=None):
     meta = json.loads(lead.get("interes") or "{}")
     items = catalogo.items()
     turno = NORMALIZADOR.normalize(texto, items, _historial(sender_id), meta.get("preferred_language") or t.get("default_language"))
-    res = pipeline.run(turno, meta, items, t, buscar_libres=get_free_slots, ahora=datetime.now(LIMA_TZ))
+    res = pipeline.run(turno, meta, items, t, buscar_libres=libres_en_horario, ahora=datetime.now(LIMA_TZ))
     idioma = turno.detected_language
     cambios = dict(res.cambios)
     texto_final = res.texto
@@ -111,7 +122,7 @@ def atender_turno(sender_id, texto, perfil="", canal_origen=None):
     if enviado:
         cambios["ts_ultimo_bot"] = ahora
     safe_upsert_lead(sender_id, "whatsapp", lead.get("nombre") or perfil or None, lead.get("telefono"), cambios, texto)
-    _guardar_mensajes(sender_id, texto, texto_final if enviado else "")
+    _guardar_mensajes(sender_id, texto, texto_final if enviado else "", " · ".join(dict.fromkeys(m for m, _ in res.traza)))
     res.texto = texto_final
     res.nlu = turno
     return res

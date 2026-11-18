@@ -9,8 +9,8 @@ from bot.estado import ALERTA_ESTADO
 from bot.utils.telefono import normalize_pe_phone
 
 
-def alertar_asesor(texto):
-    """Envía una alerta al asesor (OWNER_WA). Si el mensaje libre falla (por la ventana de 24 h de WhatsApp),
+def alertar_asesor(texto, destino=None):
+    """Envía una alerta al asesor (OWNER_WA, o el WhatsApp del asesor del tenant si se indica). Si el mensaje libre falla (por la ventana de 24 h de WhatsApp),
     intenta con una plantilla aprobada. Todo queda en los logs con la etiqueta [ALERTA]."""
     print(f"[ALERTA] {texto}")
     if not ALERTA_ESTADO["chequeado"]:
@@ -24,6 +24,8 @@ def alertar_asesor(texto):
                       "las alertas nunca llegarán. Configura OWNER_WA con el celular personal del asesor.")
         except Exception:
             pass
+    if destino and re.sub(r"\D", "", str(destino)) != re.sub(r"\D", "", OWNER_WA or ""):
+        return send_wa_text(destino, texto)   # asesor propio del cliente (configurado en el CRM web)
     if send_wa_text(OWNER_WA, texto):
         return True
     if ALERTA_TEMPLATE:

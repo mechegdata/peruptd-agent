@@ -358,6 +358,7 @@ function render() {
 }
 newLead();
 document.addEventListener("DOMContentLoaded", async () => {
+  if (MODO_CRM) return CRM.iniciar();          // production CRM at /app (login); /app?demo=1 keeps the demo below
   render();
   const live = await Live.arrancar().catch(() => false);
   render();

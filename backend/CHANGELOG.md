@@ -2,6 +2,18 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones: `AAAA.MM.N`.
 
+## PeruPTD Agent 0.3.0 — 2026-11-17 · PeruPTD Native CRM
+- CRM web en `/app` con login (`hub_users`, migración 005; `bot/hub/sesion.py`: hash scrypt, cookie HttpOnly firmada,
+  límite de intentos, CSRF) y aislamiento por `tenant_id` (`MULTI_TENANT`, `tenant.usar`, `datos.leads.tabla`).
+  `/app?demo=1` = demo intacta para videos.
+- Rutas: `hub_auth` (login/logout/me), `hub_api` (Kanban de 5 columnas, mensajes con motor, comandos + mensaje manual con
+  pausa de 2 h), `hub_catalogo` (CRUD, subida de archivos por rol al bucket `catalogo`, sincronizar), `hub_config`
+  (`GET/PUT /api/hub/playbook`: dueño, horarios, silencio, frases prohibidas, textos de seguimiento, mapeo CRM).
+- Seguimiento: plantillas por industria ES/EN (`plantillas_industria.py`: inmobiliaria, salud/clínicas, B2B).
+- Catálogo: `qualification_mode`, `filter_questions`, `conditions_es/en`; roles `PROOF_RESULTS` y `LOCATION_MAP`.
+- `crm_adapters/mapeo.py` + `tenants.crm_field_mapping_json`: objetos y campos del CRM externo configurables.
+- `scripts/crear_usuario.py`. Pruebas: `test_crm_web.py` (Supabase en memoria), mapeo y plantillas → 181.
+
 ## PeruPTD Agent 0.2.0 — 2026-11-17
 - Seguimiento multi-industria (modo `catalogo`): `bot/seguimiento/motor_catalogo.py` + `plantillas.py`; textos ES/EN en
   `playbook.seguimiento`, interruptores `seguimiento_<clave>`, adjuntos del catálogo. SAGUE (`sague_legacy`) sin cambios.

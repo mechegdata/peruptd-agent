@@ -6,11 +6,11 @@ import json
 import time
 from pathlib import Path
 
-from bot import db
-from bot.config import PLAYBOOK_ARCHIVO, TENANT_ID
+from bot import db, tenant
+from bot.config import PLAYBOOK_ARCHIVO
 
 CARPETA = Path(__file__).resolve().parent.parent / "playbooks"
-_CACHE = {"ts": 0.0, "datos": None}
+_CACHE = {}   # tenant_id -> (ts, datos)
 CACHE_SEG = 5 * 60
 
 
@@ -23,7 +23,7 @@ def _de_bd():
     if not db.supabase:
         return None
     try:
-        r = db.supabase.table("tenant_playbooks").select("playbook").eq("tenant_id", TENANT_ID).limit(1).execute()
+        r = db.supabase.table("tenant_playbooks").select("playbook").eq("tenant_id", tenant.tid()).limit(1).execute()
         fila = (r.data or [None])[0]
         pb = (fila or {}).get("playbook")
         return json.loads(pb) if isinstance(pb, str) else pb
@@ -33,8 +33,9 @@ def _de_bd():
 
 def actual():
     """Playbook vigente del tenant (dict; vacío si no hay ninguno)."""
-    if _CACHE["datos"] is not None and time.time() - _CACHE["ts"] < CACHE_SEG:
-        return _CACHE["datos"]
+    ts, guardado = _CACHE.get(tenant.tid(), (0, None))
+    if guardado is not None and time.time() - ts < CACHE_SEG:
+        return guardado
     datos = _de_bd()
     if not datos:
         try:
@@ -42,7 +43,7 @@ def actual():
         except Exception as e:
             print(f"Sin playbook ({PLAYBOOK_ARCHIVO}): {e}")
             datos = {}
-    _CACHE.update(ts=time.time(), datos=datos)
+    _CACHE[tenant.tid()] = (time.time(), datos)
     return datos
 
 
@@ -62,4 +63,4 @@ def interruptor(nombre, defecto=True):
 
 
 def limpiar_cache():
-    _CACHE.update(ts=0.0, datos=None)
+    _CACHE.clear()

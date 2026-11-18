@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from bot import playbooks, tenant
 from bot.config import CRM_SYNC_ACTIVO, DURACION_VISITA_MIN
 from bot.crm_adapters import adaptador
-from bot.datos.leads import get_lead_by_sender_or_phone, safe_upsert_lead
+from bot.datos.leads import get_lead_by_sender_or_phone, safe_upsert_lead, tabla
 from bot.db import supabase
 from bot.nlp.financiamiento import resumen_financiero
 
@@ -77,7 +77,7 @@ def escribir_columnas(lead, meta):
              "sent_media_ids": enviados, "external_crm_lead_id": meta.get("crm_id") or meta.get("sf_lead_id"),
              "last_client_message_at": meta.get("ts_ultimo_cliente"), "last_bot_message_at": meta.get("ts_ultimo_bot")}
     try:
-        supabase.table("leads").update({k: v for k, v in datos.items() if v is not None}).eq("sender_id", lead["sender_id"]).execute()
+        tabla("leads").update({k: v for k, v in datos.items() if v is not None}).eq("sender_id", lead["sender_id"]).execute()
     except Exception:
         pass
 
@@ -90,7 +90,7 @@ def _resumen_chat(sender_id, n=20):
     if not supabase:
         return ""
     try:
-        filas = supabase.table("mensajes").select("rol,contenido").eq("sender_id", sender_id).order("created_at", desc=True).limit(n).execute().data or []
+        filas = tabla("mensajes").select("rol,contenido").eq("sender_id", sender_id).order("created_at", desc=True).limit(n).execute().data or []
         return "\n".join(f"{'Cliente' if f.get('rol') == 'user' else 'Agente'}: {f.get('contenido')}" for f in reversed(filas))
     except Exception:
         return ""
