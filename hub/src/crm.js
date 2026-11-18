@@ -48,7 +48,7 @@ const CRM = (() => {
     $("#top").replaceChildren(
       el("div", { class: "brand" }, el("div", { class: "mark" }, "PTD"), el("div", {}, el("h1", {}, C.estado ? C.estado.name : "PeruPTD Native CRM"),
         el("small", {}, C.me ? `${C.me.nombre} · ${C.me.rol}` : "PeruPTD Native CRM"))),
-      el("div", { class: "seg" }, ...["es", "en"].map((l) => el("button", { "aria-pressed": C.lang === l ? "true" : "false", onclick: () => { C.lang = l; pintar(); } }, l.toUpperCase()))),
+      el("div", { class: "seg" }, ...["es", "en"].map((l) => el("button", { "aria-pressed": C.lang === l ? "true" : "false", onclick: () => { C.lang = l; C.langFijo = true; pintar(); } }, l.toUpperCase()))),
       C.me ? el("button", { class: "btn small", onclick: salir }, x("out")) : null);
     $("#tabs").replaceChildren(...(C.me ? ["pipeline", "catalog", "settings"] : []).map((v) =>
       el("button", { role: "tab", "aria-selected": C.vista === v ? "true" : "false", onclick: () => { C.vista = v; pintar(); } }, x(v))));
@@ -79,7 +79,7 @@ const CRM = (() => {
   async function cargar() {
     C.me = (await api("/api/hub/me")).usuario;
     C.estado = await api("/api/hub/estado");
-    C.lang = C.estado.default_language === "en" ? "en" : "es";
+    if (!C.langFijo) C.lang = C.estado.default_language === "en" ? "en" : "es";
     await Promise.all([cargarLeads(), cargarCatalogo()]);
     clearInterval(C.timer);
     C.timer = setInterval(async () => { if (C.vista !== "pipeline" || document.hidden) return; await cargarLeads(); if (C.sel) await cargarMensajes(C.sel, true); pintar(); }, 15000);

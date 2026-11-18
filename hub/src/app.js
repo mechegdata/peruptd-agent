@@ -62,7 +62,7 @@ function newLead() {
 // ---------------- top bar ----------------
 function renderTop() {
   const fijo = (key) => Live.cfg.on && (key === "ind" || key === "crm");
-  const seg = (key, opts) => el("div", { class: "seg", role: "group" }, opts.map(([v, label]) => el("button", { "aria-pressed": S[key] === v ? "true" : "false", disabled: fijo(key) && S[key] !== v, onclick: () => { if (S[key] === v) return; S[key] = v; if (key === "ind") newLead(); if (key === "lang" && lead.stage === "new" && !lead.greeted) lead.preferred_language = v; render(); } }, label)));
+  const seg = (key, opts) => el("div", { class: "seg", role: "group" }, opts.map(([v, label]) => el("button", { "aria-pressed": S[key] === v ? "true" : "false", disabled: fijo(key) && S[key] !== v, onclick: () => { if (S[key] === v) return; S[key] = v; if (key === "ind") { newLead(); S.logs = []; } if (key === "lang" && lead.stage === "new" && !lead.greeted) lead.preferred_language = v; render(); } }, label)));
   $("#top").replaceChildren(
     el("div", { class: "brand" }, el("div", { class: "mark" }, "PTD"), el("div", {}, el("h1", {}, "PeruPTD AI Sales Hub"), el("small", {}, t("tagline")))),
     el("div", { class: "switch" }, el("span", {}, t("lang")), seg("lang", [["en", "🇺🇸 English"], ["es", "🇪🇸 Español"]])),

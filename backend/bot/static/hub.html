@@ -857,7 +857,7 @@ function newLead() {
 // ---------------- top bar ----------------
 function renderTop() {
   const fijo = (key) => Live.cfg.on && (key === "ind" || key === "crm");
-  const seg = (key, opts) => el("div", { class: "seg", role: "group" }, opts.map(([v, label]) => el("button", { "aria-pressed": S[key] === v ? "true" : "false", disabled: fijo(key) && S[key] !== v, onclick: () => { if (S[key] === v) return; S[key] = v; if (key === "ind") newLead(); if (key === "lang" && lead.stage === "new" && !lead.greeted) lead.preferred_language = v; render(); } }, label)));
+  const seg = (key, opts) => el("div", { class: "seg", role: "group" }, opts.map(([v, label]) => el("button", { "aria-pressed": S[key] === v ? "true" : "false", disabled: fijo(key) && S[key] !== v, onclick: () => { if (S[key] === v) return; S[key] = v; if (key === "ind") { newLead(); S.logs = []; } if (key === "lang" && lead.stage === "new" && !lead.greeted) lead.preferred_language = v; render(); } }, label)));
   $("#top").replaceChildren(
     el("div", { class: "brand" }, el("div", { class: "mark" }, "PTD"), el("div", {}, el("h1", {}, "PeruPTD AI Sales Hub"), el("small", {}, t("tagline")))),
     el("div", { class: "switch" }, el("span", {}, t("lang")), seg("lang", [["en", "🇺🇸 English"], ["es", "🇪🇸 Español"]])),
@@ -1361,7 +1361,7 @@ const CRM = (() => {
     $("#top").replaceChildren(
       el("div", { class: "brand" }, el("div", { class: "mark" }, "PTD"), el("div", {}, el("h1", {}, C.estado ? C.estado.name : "PeruPTD Native CRM"),
         el("small", {}, C.me ? `${C.me.nombre} · ${C.me.rol}` : "PeruPTD Native CRM"))),
-      el("div", { class: "seg" }, ...["es", "en"].map((l) => el("button", { "aria-pressed": C.lang === l ? "true" : "false", onclick: () => { C.lang = l; pintar(); } }, l.toUpperCase()))),
+      el("div", { class: "seg" }, ...["es", "en"].map((l) => el("button", { "aria-pressed": C.lang === l ? "true" : "false", onclick: () => { C.lang = l; C.langFijo = true; pintar(); } }, l.toUpperCase()))),
       C.me ? el("button", { class: "btn small", onclick: salir }, x("out")) : null);
     $("#tabs").replaceChildren(...(C.me ? ["pipeline", "catalog", "settings"] : []).map((v) =>
       el("button", { role: "tab", "aria-selected": C.vista === v ? "true" : "false", onclick: () => { C.vista = v; pintar(); } }, x(v))));
@@ -1392,7 +1392,7 @@ const CRM = (() => {
   async function cargar() {
     C.me = (await api("/api/hub/me")).usuario;
     C.estado = await api("/api/hub/estado");
-    C.lang = C.estado.default_language === "en" ? "en" : "es";
+    if (!C.langFijo) C.lang = C.estado.default_language === "en" ? "en" : "es";
     await Promise.all([cargarLeads(), cargarCatalogo()]);
     clearInterval(C.timer);
     C.timer = setInterval(async () => { if (C.vista !== "pipeline" || document.hidden) return; await cargarLeads(); if (C.sel) await cargarMensajes(C.sel, true); pintar(); }, 15000);
