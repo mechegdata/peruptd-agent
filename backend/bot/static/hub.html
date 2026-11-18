@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeruPTD AI Sales Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+<style>:root {
+  /* Command-center for a sales floor: light workspace, one dark "x-ray" instrument panel, signal-orange for the AI */
+  --paper: #eceff3; --surface: #ffffff; --ink: #141a26; --muted: #5d6677; --line: #d8dce4;
+  --signal: #ff5a1f; --signal-soft: #fff0e9; --xray: #0f1521; --xray-line: #243047; --xray-text: #d7deea; --cyan: #44d4c4;
+  --wa: #0b5e54; --wa-bubble: #d9fdd3; --wa-bg: #efe9e1; --good: #1f8a4c; --warn: #c27400; --bad: #c0362c;
+  --display: "Sora", "Segoe UI", system-ui, sans-serif; --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 14px/1.45 var(--body); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ---------- top bar ---------- */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 10px 18px; background: var(--ink); color: #fff; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.mark { width: 34px; height: 34px; border-radius: 9px; background: var(--signal); display: grid; place-items: center; font: 700 13px var(--display); letter-spacing: .02em; }
+.brand h1 { font: 600 17px var(--display); margin: 0; letter-spacing: -.01em; }
+.brand small { display: block; color: #9aa6bb; font-size: 11.5px; }
+.switch { display: flex; align-items: center; gap: 6px; }
+.switch > span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: #8b97ad; }
+.seg { display: inline-flex; background: #232c3d; border-radius: 9px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; color: #c9d1df; padding: 5px 10px; border-radius: 7px; font-size: 12.5px; white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: #fff; color: var(--ink); font-weight: 600; }
+.tabs { display: flex; gap: 4px; padding: 8px 18px 0; background: var(--ink); }
+.tabs button { border: 0; background: transparent; color: #aab4c6; padding: 9px 14px; border-radius: 9px 9px 0 0; font-weight: 500; }
+.tabs button[aria-selected="true"] { background: var(--paper); color: var(--ink); font-weight: 600; }
+.tabs .count { font: 600 10.5px var(--mono); background: var(--signal); color: #fff; border-radius: 6px; padding: 1px 5px; margin-left: 6px; }
+main { padding: 14px 18px 22px; }
+.view[hidden] { display: none !important; }
+
+/* ---------- live console grid ---------- */
+.console { display: grid; grid-template-columns: minmax(330px, 1fr) minmax(400px, 1.25fr) minmax(300px, .9fr); gap: 14px; align-items: start; }
+@media (max-width: 1180px) { .console { grid-template-columns: 1fr 1fr; } .console .crmcol { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .console { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.panel h2 { font: 600 13px var(--display); margin: 0; padding: 11px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+.panel h2 .tag { margin-left: auto; font: 500 11px var(--mono); color: var(--muted); }
+
+/* chat */
+.phone { display: flex; flex-direction: column; height: 680px; }
+.phone-head { background: var(--wa); color: #fff; display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: #dfe7e5; color: var(--wa); display: grid; place-items: center; font-weight: 700; }
+.phone-head b { display: block; font-size: 14px; }
+.phone-head small { opacity: .8; font-size: 11.5px; }
+.chan { margin-left: auto; display: inline-flex; background: rgba(255,255,255,.15); border-radius: 8px; padding: 2px; }
+.chan button { border: 0; background: transparent; color: #fff; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; }
+.chan button[aria-pressed="true"] { background: #fff; color: var(--wa); font-weight: 600; }
+.status-strip { display: flex; gap: 6px; align-items: center; padding: 6px 12px; font-size: 12px; background: #f7f3ec; border-bottom: 1px solid #e6ddd0; min-height: 31px; }
+.status-strip .pill { margin-left: auto; }
+.msgs { flex: 1; overflow-y: auto; padding: 12px; background: var(--wa-bg); display: flex; flex-direction: column; gap: 6px; scroll-behavior: smooth; }
+.row { display: flex; animation: rise .3s ease; }
+.row.me { justify-content: flex-start; } .row.bot, .row.rep { justify-content: flex-end; } .row.sys { justify-content: center; }
+.bubble { max-width: 86%; padding: 7px 10px 4px; border-radius: 10px; box-shadow: 0 1px 1px rgba(0,0,0,.1); white-space: pre-line; font-size: 13.5px; }
+.me .bubble { background: #fff; border-top-left-radius: 3px; }
+.bot .bubble { background: var(--wa-bubble); border-top-right-radius: 3px; }
+.rep .bubble { background: #fff4c7; border-top-right-radius: 3px; }
+.sms .bot .bubble { background: #2f7cf6; color: #fff; } .sms .me .bubble { background: #e9e9eb; } .sms .msgs { background: #fff; }
+.who { font-size: 11px; font-weight: 600; color: var(--wa); margin-bottom: 1px; }
+.sms .bot .who { color: #dce9ff; }
+.time { font-size: 10px; color: #667781; text-align: right; margin-top: 1px; }
+.sms .bot .time { color: #dce9ff; }
+.sysnote { background: #fff7d6; border: 1px solid #f0dc96; color: #6a4d00; border-radius: 8px; padding: 5px 9px; font-size: 12px; max-width: 92%; text-align: center; }
+.media-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.thumb { width: 118px; border-radius: 8px; overflow: hidden; background: #fff; border: 1px solid rgba(0,0,0,.08); font-size: 11px; color: var(--ink); }
+.thumb .art { height: 70px; display: grid; place-items: center; font-size: 24px; color: #fff; }
+.thumb .cap { padding: 4px 6px; line-height: 1.25; }
+.thumb .trg { display: block; font: 500 9.5px var(--mono); color: var(--muted); }
+.typing { display: inline-flex; gap: 4px; padding: 10px 12px; }
+.typing i { width: 6px; height: 6px; border-radius: 50%; background: #6c8f66; animation: blink 1s infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+.composer { border-top: 1px solid var(--line); padding: 8px; display: flex; flex-direction: column; gap: 6px; background: #fafafa; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+.chip:hover { border-color: var(--signal); }
+.chip.play { background: var(--signal); color: #fff; border-color: var(--signal); font-weight: 600; }
+.chip.slot { background: var(--wa); color: #fff; border-color: var(--wa); font-weight: 600; }
+.sendrow { display: flex; gap: 6px; }
+.sendrow input { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; background: #fff; }
+.btn { border: 1px solid var(--line); background: #fff; border-radius: 9px; padding: 7px 12px; font-weight: 500; }
+.btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn.small { padding: 4px 9px; font-size: 12px; }
+
+/* x-ray */
+.xray { background: var(--xray); color: var(--xray-text); border-color: #0b0f18; }
+.xray h2 { border-color: var(--xray-line); color: #fff; }
+.xray h2 .tag { color: #7d8aa3; }
+.xbody { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; min-height: 640px; }
+.stage { border: 1px solid var(--xray-line); border-radius: 10px; padding: 10px 12px; position: relative; transition: border-color .3s, box-shadow .3s; }
+.stage.on { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal) inset; }
+.stage.done { border-color: #2c3b55; }
+.stage h3 { margin: 0 0 6px; font: 600 12px var(--display); color: #fff; display: flex; gap: 8px; align-items: baseline; }
+.stage h3 .n { font: 600 10.5px var(--mono); color: var(--signal); }
+.stage h3 .ms { margin-left: auto; font: 500 10.5px var(--mono); color: var(--cyan); }
+.muted-x { color: #7d8aa3; font-size: 12px; }
+.raw { font: 12px/1.4 var(--mono); color: #aeb9cc; background: #0a0f18; border-radius: 6px; padding: 7px 9px; white-space: pre-wrap; }
+.canon { font-size: 13px; color: #fff; }
+.slangs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.slang { font: 11.5px var(--mono); border: 1px solid #39465f; border-radius: 6px; padding: 2px 6px; }
+.slang b { color: var(--signal); font-weight: 600; } .slang em { color: var(--cyan); font-style: normal; }
+.intents { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.intent { font: 600 10.5px var(--mono); background: #1c2638; border-radius: 5px; padding: 2px 6px; color: #c8d3e6; }
+.intent.primary { background: var(--signal); color: #fff; }
+.ents { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-top: 8px; font: 12px var(--mono); }
+.ents dt { color: #7d8aa3; } .ents dd { margin: 0; color: var(--cyan); }
+.trace { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.trace li { display: grid; grid-template-columns: 112px 1fr; gap: 8px; font-size: 12px; align-items: baseline; animation: rise .3s ease both; }
+.trace li b { font: 600 11px var(--mono); color: var(--signal); }
+.guard { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.guard span { font: 11px var(--mono); color: #9fe3b5; }
+details.json summary { cursor: pointer; font: 11px var(--mono); color: #7d8aa3; margin-top: 8px; }
+details.json pre { font: 11px/1.4 var(--mono); color: #c8d3e6; background: #0a0f18; border-radius: 6px; padding: 8px; overflow-x: auto; max-height: 220px; margin: 6px 0 0; }
+
+/* crm column */
+.crmcol { display: flex; flex-direction: column; gap: 14px; }
+.crmhead { color: #fff; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
+.crmhead b { font: 600 13px var(--display); }
+.crmhead small { margin-left: auto; font: 11px var(--mono); opacity: .85; }
+.fields { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 3px; }
+.field { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 5px 8px; border-radius: 7px; font-size: 12.5px; transition: background .5s; }
+.field code { font: 11.5px var(--mono); color: var(--muted); }
+.field span { font-weight: 600; text-align: right; }
+.field.flash { animation: flash 1.6s ease; }
+.cal { padding: 10px 12px 12px; display: grid; grid-template-columns: 38px repeat(3, 1fr); gap: 2px; font-size: 11px; }
+.cal .hd { font-weight: 600; text-align: center; padding-bottom: 4px; }
+.cal .hr { color: var(--muted); font: 10.5px var(--mono); }
+.cal .c { height: 17px; border-radius: 3px; background: #f1f3f6; }
+.cal .c.busy { background: repeating-linear-gradient(135deg, #e3e6ec, #e3e6ec 4px, #f1f3f6 4px, #f1f3f6 8px); }
+.cal .c.offer { background: #ffe1d4; border: 1px dashed var(--signal); }
+.cal .c.booked { background: var(--good); }
+.feed { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 5px; max-height: 190px; overflow-y: auto; }
+.feed div { font-size: 12px; padding: 5px 8px; border-radius: 7px; background: #f6f7f9; border-left: 3px solid var(--line); animation: rise .3s ease; }
+.feed div.hot { border-left-color: var(--signal); background: var(--signal-soft); }
+.pill { font: 600 11px var(--body); border-radius: 999px; padding: 2px 8px; background: #e7f6ec; color: var(--good); }
+.pill.warn { background: #fff1d6; color: var(--warn); } .pill.bad { background: #fde6e4; color: var(--bad); }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 12px; }
+
+/* catalog */
+.syncbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+.syncbar code { font: 12px var(--mono); background: #f1f3f6; padding: 2px 6px; border-radius: 5px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px #d6f0df; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 14px; }
+@media (max-width: 520px) { .cards { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.card header { display: flex; gap: 10px; align-items: flex-start; }
+.card h3 { margin: 0; font: 600 15px var(--display); text-wrap: balance; }
+.card header small { color: var(--muted); font: 11px var(--mono); }
+.card header .pill { margin-left: auto; white-space: nowrap; }
+.specs { display: flex; flex-wrap: wrap; gap: 5px; }
+.specs span { font-size: 12px; background: #f3f5f8; border-radius: 6px; padding: 2px 7px; }
+.grid6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.grid6 label, .card label.wide { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.grid6 label { min-width: 0; }
+.grid6 input { width: 100%; min-width: 0; }
+.grid6 input, .card textarea { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: 13px var(--body); color: var(--ink); text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.card textarea { resize: vertical; min-height: 44px; }
+.mediagrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.mediagrid .thumb { width: 128px; }
+.addmedia { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+.addmedia select { border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; }
+
+/* pipeline */
+.board { display: grid; grid-template-columns: repeat(6, minmax(170px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.col { background: #e2e6ec; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 360px; }
+.col h3 { margin: 2px 4px 2px; font: 600 12px var(--display); display: flex; justify-content: space-between; }
+.col h3 span { font: 11px var(--mono); color: var(--muted); }
+.lead { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 9px; font-size: 12px; display: flex; flex-direction: column; gap: 3px; text-align: left; width: 100%; }
+.lead:hover { border-color: var(--signal); }
+.lead.live { border: 2px solid var(--signal); }
+.lead b { font-size: 13px; }
+.lead .meta { color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; }
+.strikes { display: inline-flex; gap: 2px; } .strikes i { width: 7px; height: 7px; border-radius: 50%; background: #d4d9e2; } .strikes i.on { background: var(--signal); }
+.detail { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .detail { grid-template-columns: 1fr; } }
+.timeline { list-style: none; margin: 0; padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 0; }
+.timeline li { display: grid; grid-template-columns: 22px 150px 1fr auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 12.5px; }
+.timeline .ic { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 10px; }
+.timeline .done .ic { background: var(--good); border-color: var(--good); color: #fff; }
+.timeline .next .ic { border-color: var(--signal); background: var(--signal-soft); }
+.timeline .skip { opacity: .45; text-decoration: line-through; }
+.timeline .when { font: 600 12px var(--mono); }
+
+@keyframes rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes blink { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+@keyframes flash { 0% { background: #c9f1d5; } 100% { background: transparent; } }
+
+/* live api mode */
+.mode { border: 1px solid #3a4558; background: transparent; color: #c9d1df; border-radius: 9px; padding: 6px 10px; font: 600 11.5px var(--mono); }
+.mode.on { background: #133d2a; border-color: #2c8a5a; color: #9ff0c3; }
+.seg button:disabled { opacity: .35; cursor: not-allowed; }
+.live-panel { position: fixed; top: 64px; right: 18px; z-index: 20; width: min(380px, calc(100% - 36px)); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 40px rgba(20,26,38,.25); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.live-panel h3 { margin: 0; font: 600 14px var(--display); }
+.live-panel label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.live-panel input { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font: 13px var(--body); text-transform: none; letter-spacing: 0; color: var(--ink); }
+.live-panel .controls { padding: 0; }
+.live-msg { margin: 0; font-size: 12.5px; }
+.live-note { margin: 0; font-size: 11.5px; color: var(--muted); }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 9px; font-size: 13px; z-index: 30; animation: rise .25s ease; }
+.toast.bad { background: var(--bad); }
+</style>
+</head>
+<body>
+<header class="top" id="top"></header>
+<nav class="tabs" id="tabs" role="tablist"></nav>
+<main>
+  <section class="view" id="tab1"></section>
+  <section class="view" id="tab2" hidden></section>
+  <section class="view" id="tab3" hidden></section>
+</main>
+<script>
+const LEXICON = {"_doc": "Diccionario de jergas, abreviaturas y errores de tipeo (ES/EN). Lo usan el normalizador del backend (bot/nlu) como respaldo determinístico y el simulador del AI Sales Hub. Claves en minúsculas y sin tildes; se reemplazan como palabra completa. 'frases' se aplica antes que las palabras sueltas.", "es": {"ola": "hola", "olas": "hola", "holi": "hola", "buenas": "buenas", "q": "que", "k": "que", "ke": "que", "xq": "porque", "pq": "porque", "x": "por", "xa": "para", "pa": "para", "xfa": "por favor", "porfa": "por favor", "pls": "por favor", "tb": "también", "tmb": "también", "tbn": "también", "d": "de", "dl": "del", "tngo": "tengo", "tgo": "tengo", "tns": "tienes", "tnen": "tienen", "toy": "estoy", "ta": "está", "tas": "estás", "stan": "están", "stá": "está", "ksa": "casa", "kasa": "casa", "depa": "departamento", "dpto": "departamento", "cntado": "contado", "contao": "contado", "cuotas": "cuotas", "cuota": "cuota", "mñn": "mañana", "mñna": "mañana", "mnn": "mañana", "manana": "mañana", "salado": "caro", "salao": "caro", "carisimo": "carísimo", "chamba": "trabajo", "chambear": "trabajar", "jale": "trabajo", "hno": "hermano", "bro": "hermano", "causa": "amigo", "pata": "amigo", "nomas": "nada más", "noms": "nada más", "nms": "nada más", "srvicio": "servicio", "servisio": "servicio", "premiun": "premium", "premiu": "premium", "info": "información", "infó": "información", "xaca": "por acá", "sabado": "sábado", "sab": "sábado", "dom": "domingo", "implantes": "implantes", "implnte": "implante", "cuanto": "cuánto", "cuant": "cuánto", "dnd": "dónde", "donde": "dónde", "plata": "dinero", "podra": "podrá", "podria": "podría"}, "en": {"yo": "hey", "sup": "hi", "hiya": "hi", "hm": "how much", "hmu": "hit me up", "ngl": "not gonna lie", "tbh": "to be honest", "imo": "in my opinion", "tmrw": "tomorrow", "tmr": "tomorrow", "tmw": "tomorrow", "2mrw": "tomorrow", "2day": "today", "tn": "tonight", "rn": "right now", "asap": "as soon as possible", "btw": "by the way", "idk": "I don't know", "u": "you", "ur": "your", "r": "are", "y'all": "you all", "yall": "you all", "ya": "you", "nah": "no", "nope": "no", "yep": "yes", "yeah": "yes", "ya'll": "you all", "wanna": "want to", "gonna": "going to", "gotta": "have to", "kinda": "kind of", "sorta": "sort of", "pls": "please", "plz": "please", "thx": "thanks", "ty": "thank you", "pkg": "package", "pkgs": "packages", "apt": "apartment", "br": "bedroom", "3br": "3-bedroom", "2br": "2-bedroom", "steep": "expensive", "pricey": "expensive", "spendy": "expensive", "sat": "Saturday", "sun": "Sunday", "mon": "Monday", "fri": "Friday", "ish": "approximately", "abt": "about", "w/": "with", "b4": "before", "l8r": "later", "whats": "what is", "wheres": "where is", "hows": "how is", "cant": "cannot", "dont": "do not"}, "senales_idioma": {"es": ["hola", "que", "cuánto", "cuanto", "precio", "está", "tengo", "mañana", "sábado", "se podra", "se podrá", "contado", "caro", "por favor", "quiero", "gracias", "dónde", "donde", "cita", "nada más", "trabajo", "también", "puedo", "tienen", "cuotas", "buenas", "hermano", "salado", "chamba", "lucas"], "en": ["hey", "how much", "price", "the", "is", "do", "you", "tomorrow", "saturday", "can i", "expensive", "please", "want", "thanks", "where", "appointment", "tour", "after work", "not gonna lie", "payment plans", "budget", "cash", "got", "free this", "call", "what is"]}, "frases": {"es": {"de la chamba": "del trabajo", "la chamba": "el trabajo", "al toque": "de inmediato", "ta bien": "está bien", "q tal": "qué tal", "a cuanto sale": "cuánto cuesta"}, "en": {"or nah": "or not", "round 4ish": "around 4 PM", "hop on a call": "have a call"}}};
+// ===== Demo data: tenants, catalog (bilingual), media library, seeded pipeline and scripted scenarios =====
+const INDUSTRIES = {
+  realestate: {
+    icon: "🏗️", name: { en: "Real Estate / Developer", es: "Inmobiliaria / Constructora" },
+    company: "Santa Teresa Homes", advisor: "Henry Sague", botName: { en: "Ava", es: "Ava" },
+    location: { en: "Urb. Santa Teresa, Chiclayo — Lot 14", es: "Urb. Santa Teresa, Chiclayo — Lote 14" },
+    mapsUrl: "maps.google.com/?q=Santa+Teresa+Chiclayo",
+    eventWord: { en: "Showing", es: "Visita" },
+    stages: ["new", "qualified", "booked", "visited", "negotiation", "won"],
+    items: [
+      { id: "re1", external: { salesforce: "01t5g00000Kx3AA", hubspot: "prod_88412", pipedrive: "prd_17", zoho: "ZP-2201", native: "cat_0001" },
+        name: { en: "3-Story House — 4BR (Unit A)", es: "Casa de 3 pisos — 4 dorm. (Unidad A)" }, keywords: ["casa", "house", "3br", "3-bedroom", "4br", "unit", "unidad", "ksa", "home", "townhome"],
+        category: { en: "Houses", es: "Casas" }, status: "last_units",
+        specs: { en: { "Lot": "80 m² (861 sqft)", "Built area": "200 m² (2,153 sqft)", "Floors": "3", "Bedrooms": "4", "Parking": "1 garage" },
+                 es: { "Terreno": "80 m²", "Construidos": "200 m²", "Pisos": "3", "Dormitorios": "4", "Cochera": "1" } },
+        list_price: 135000, cash_price: 129000, currency: "USD", min_down_pct: 10, rec_down_pct: 20, annual_rate_pct: 8.9, max_term_years: 20,
+        promo: { en: "Launch bonus: 1st unit includes installed kitchen cabinets", es: "Bono de lanzamiento: la 1ra unidad incluye reposteros de cocina instalados" },
+        value: { en: "At $645/m² you're ~22% below the $830/m² area average — with garage and private yard", es: "A US$645/m² estás ~22% por debajo del promedio de la zona (US$830/m²), con cochera y patio propio" },
+        media: [
+          { id: "m1", type: "image", trigger: "FIRST_INFO", caption: { en: "Facade at sunset", es: "Fachada al atardecer" }, hue: 24 },
+          { id: "m2", type: "image", trigger: "FIRST_INFO", caption: { en: "Living & dining room", es: "Sala comedor" }, hue: 38 },
+          { id: "m3", type: "pdf", trigger: "SPECS_PDF", caption: { en: "Floor plans — 3 levels.pdf", es: "Planos — 3 niveles.pdf" }, hue: 210 },
+          { id: "m4", type: "image", trigger: "PRICE_OBJECTION", caption: { en: "Garage + private yard", es: "Cochera + patio propio" }, hue: 140 },
+          { id: "m5", type: "image", trigger: "LOCATION_FACADE", caption: { en: "Street view + map pin", es: "Vista de calle + ubicación" }, hue: 190 },
+          { id: "m6", type: "image", trigger: "POST_VISIT_45M", caption: { en: "Kitchen render — Graphite", es: "Render cocina — Grafito" }, hue: 260 },
+          { id: "m7", type: "video", trigger: "VIDEO_TOUR", caption: { en: "Full walkthrough (2:14)", es: "Recorrido completo (2:14)" }, hue: 330 }
+        ] },
+      { id: "re2", external: { salesforce: "01t5g00000Kx3AB", hubspot: "prod_88413", pipedrive: "prd_18", zoho: "ZP-2202", native: "cat_0002" },
+        name: { en: "2BR Apartment — 3rd floor", es: "Departamento 2 dorm. — 3er piso" }, keywords: ["depa", "departamento", "apartment", "apt", "2br", "2-bedroom", "flat"],
+        category: { en: "Apartments", es: "Departamentos" }, status: "available",
+        specs: { en: { "Area": "68 m² (732 sqft)", "Bedrooms": "2", "Bathrooms": "2", "Balcony": "Yes" }, es: { "Área": "68 m²", "Dormitorios": "2", "Baños": "2", "Balcón": "Sí" } },
+        list_price: 89000, cash_price: 85000, currency: "USD", min_down_pct: 10, rec_down_pct: 20, annual_rate_pct: 8.9, max_term_years: 20,
+        promo: { en: "Free parking space for the first 3 buyers", es: "Estacionamiento gratis para los 3 primeros compradores" },
+        value: { en: "Same finishes as the houses at 34% less", es: "Mismos acabados que las casas por 34% menos" },
+        media: [
+          { id: "m8", type: "image", trigger: "FIRST_INFO", caption: { en: "Balcony view", es: "Vista desde el balcón" }, hue: 200 },
+          { id: "m9", type: "pdf", trigger: "SPECS_PDF", caption: { en: "Apartment plan.pdf", es: "Plano depa.pdf" }, hue: 215 }
+        ] }
+    ],
+    scenarios: {
+      es: { label: "4 mensajes cortados con jerga", parts: ["ola q tal", "a cuanto sale la ksa al cntado??", "ta medio salado ah tngo 25 mil nomas", "se podra ver mñn saliendo de la chamba tipo 6 y media?"] },
+      en: { label: "SMS burst with slang", parts: ["yo", "hm for the 3br unit?", "ngl sounds steep, only got 25k down", "can i tour tmrw after work round 6?"] }
+    },
+    quick: { es: ["mándame los planos xfa", "dnd queda?", "tienen video del recorrido?", "sigue caro hno"], en: ["send me the floor plans pls", "wheres it located?", "got a video tour?", "still too steep tbh"] },
+    seed: [
+      { name: "Lucía Paredes", stage: "qualified", lang: "es", channel: "WhatsApp", pay: "FINANCING", budget: 30000, obj: 1 },
+      { name: "Mark Johnson", stage: "booked", lang: "en", channel: "SMS", pay: "CASH", budget: 130000, obj: 0, day: 0 },
+      { name: "Rosa Chávez", stage: "visited", lang: "es", channel: "Meta Lead Ad", pay: "FINANCING", budget: 27000, obj: 2, day: 2 },
+      { name: "Daniel Ortiz", stage: "negotiation", lang: "es", channel: "Instagram DM", pay: "CASH", budget: 129000, obj: 1, day: 10 },
+      { name: "Emily Carter", stage: "new", lang: "en", channel: "Meta Lead Ad", pay: null, budget: null, obj: 0 },
+      { name: "Jorge Ramos", stage: "won", lang: "es", channel: "WhatsApp", pay: "CASH", budget: 129000, obj: 1, day: 14 }
+    ]
+  },
+  dental: {
+    icon: "🦷", name: { en: "Dental & MedSpa Clinic", es: "Clínica Dental & MedSpa" },
+    company: "BrightSmile Dental Studio", advisor: "Dr. Laura Kim", botName: { en: "Mia", es: "Mía" },
+    location: { en: "820 Brickell Ave, Miami FL — Suite 400", es: "820 Brickell Ave, Miami FL — Suite 400" },
+    mapsUrl: "maps.google.com/?q=820+Brickell+Ave",
+    eventWord: { en: "Consultation", es: "Evaluación" },
+    stages: ["new", "qualified", "booked", "visited", "negotiation", "won"],
+    items: [
+      { id: "dn1", external: { salesforce: "01t5g00000Dn1AA", hubspot: "prod_55120", pipedrive: "prd_41", zoho: "ZP-5101", native: "cat_0101" },
+        name: { en: "Full-Arch Implants (All-on-4) package", es: "Paquete Implantes de Arcada Completa (All-on-4)" }, keywords: ["implant", "implants", "implante", "implantes", "arcada", "arch", "all-on-4", "pkg", "package", "paquete"],
+        category: { en: "Implants", es: "Implantes" }, status: "available",
+        specs: { en: { "Procedure": "1 day (sedation)", "Recovery": "48–72 h", "Warranty": "Lifetime on implants", "Visits": "3" }, es: { "Procedimiento": "1 día (con sedación)", "Recuperación": "48–72 h", "Garantía": "De por vida en implantes", "Citas": "3" } },
+        list_price: 18500, cash_price: 16900, currency: "USD", min_down_pct: 10, rec_down_pct: 20, annual_rate_pct: 9.9, max_term_years: 3,
+        promo: { en: "Free 3D CT scan + consultation this month", es: "Tomografía 3D + evaluación gratis este mes" },
+        value: { en: "Avg. Miami price is $23,900 per arch — ours includes the final zirconia teeth", es: "En Miami el promedio es US$23,900 por arcada — el nuestro incluye los dientes finales de zirconio" },
+        insurance: { en: "We accept PPO plans (Delta Dental, Cigna, MetLife) — HMO doesn't cover implants", es: "Aceptamos seguros PPO (Delta Dental, Cigna, MetLife) — los HMO no cubren implantes" },
+        media: [
+          { id: "d1", type: "image", trigger: "FIRST_INFO", caption: { en: "Real patient — before / after", es: "Paciente real — antes / después" }, hue: 190 },
+          { id: "d2", type: "pdf", trigger: "SPECS_PDF", caption: { en: "Treatment guide.pdf", es: "Guía del tratamiento.pdf" }, hue: 210 },
+          { id: "d3", type: "image", trigger: "PRICE_OBJECTION", caption: { en: "Zirconia vs acrylic (what you get)", es: "Zirconio vs acrílico (lo que recibes)" }, hue: 170 },
+          { id: "d4", type: "image", trigger: "LOCATION_FACADE", caption: { en: "Clinic reception", es: "Recepción de la clínica" }, hue: 320 },
+          { id: "d5", type: "video", trigger: "VIDEO_TOUR", caption: { en: "Dr. Kim explains the procedure (1:40)", es: "La Dra. Kim explica el procedimiento (1:40)" }, hue: 280 }
+        ] },
+      { id: "dn2", external: { salesforce: "01t5g00000Dn1AB", hubspot: "prod_55121", pipedrive: "prd_42", zoho: "ZP-5102", native: "cat_0102" },
+        name: { en: "Clear aligners (full case)", es: "Alineadores invisibles (caso completo)" }, keywords: ["aligner", "aligners", "invisalign", "alineadores", "braces", "brackets"],
+        category: { en: "Orthodontics", es: "Ortodoncia" }, status: "available",
+        specs: { en: { "Duration": "6–14 months", "Visits": "Every 8 weeks" }, es: { "Duración": "6–14 meses", "Controles": "Cada 8 semanas" } },
+        list_price: 4800, cash_price: 4400, currency: "USD", min_down_pct: 10, rec_down_pct: 20, annual_rate_pct: 0, max_term_years: 1,
+        promo: { en: "0% financing for 12 months", es: "0% de interés a 12 meses" },
+        value: { en: "Includes whitening and retainers", es: "Incluye blanqueamiento y retenedores" },
+        media: [ { id: "d6", type: "image", trigger: "FIRST_INFO", caption: { en: "Aligner smile result", es: "Resultado con alineadores" }, hue: 200 } ] }
+    ],
+    scenarios: {
+      es: { label: "Mensajes con jerga y cuotas", parts: ["holi buenas", "cuanto x los implantes de arcada completa?", "ta salado, tienen cuotas o aceptan seguro?", "puedo el sab tipo 11"] },
+      en: { label: "SMS slang + insurance", parts: ["yo hm for the implant pkg?", "ngl sounds steep, yall take delta dental or payment plans?", "free this sat round 4ish"] }
+    },
+    quick: { es: ["mándame la guía en pdf", "dnd están?", "tienen video del doctor?", "sigue caro"], en: ["send the treatment guide pls", "where r u located?", "got a video from the doctor?", "still pricey tbh"] },
+    seed: [
+      { name: "Michael Torres", stage: "booked", lang: "en", channel: "Meta Lead Ad", pay: "FINANCING", budget: 3000, obj: 1, day: 0 },
+      { name: "Ana Gutiérrez", stage: "qualified", lang: "es", channel: "WhatsApp", pay: "INSURANCE", budget: null, obj: 0 },
+      { name: "Sarah Lopez", stage: "visited", lang: "en", channel: "SMS", pay: "CASH", budget: 17000, obj: 0, day: 2 },
+      { name: "Carlos Mena", stage: "negotiation", lang: "es", channel: "Instagram DM", pay: "FINANCING", budget: 2000, obj: 2, day: 10 },
+      { name: "Jennifer Wu", stage: "new", lang: "en", channel: "Meta Lead Ad", pay: null, budget: null, obj: 0 }
+    ]
+  },
+  b2b: {
+    icon: "🏢", name: { en: "B2B Services & Distribution", es: "Servicios B2B & Distribución" },
+    company: "Northline Industrial Supply", advisor: "Ryan Patel", botName: { en: "Max", es: "Max" },
+    location: { en: "Zoom / on-site at your plant", es: "Zoom / visita en tu planta" },
+    mapsUrl: "northline.example/meet",
+    eventWord: { en: "Discovery call", es: "Reunión de diagnóstico" },
+    stages: ["new", "qualified", "booked", "visited", "negotiation", "won"],
+    items: [
+      { id: "b1", external: { salesforce: "01t5g00000Bz9AA", hubspot: "prod_77001", pipedrive: "prd_90", zoho: "ZP-9001", native: "cat_0201" },
+        name: { en: "Premium Maintenance Plan (monthly)", es: "Servicio Premium de Mantenimiento (mensual)" }, keywords: ["premium", "premiun", "servicio", "service", "plan", "maintenance", "mantenimiento"],
+        category: { en: "Service plans", es: "Planes de servicio" }, status: "available",
+        specs: { en: { "Response time": "4 h on-site", "Coverage": "Up to 40 machines", "Support": "24/7", "Onboarding": "7 days" }, es: { "Respuesta": "4 h en planta", "Cobertura": "Hasta 40 máquinas", "Soporte": "24/7", "Implementación": "7 días" } },
+        list_price: 2400, cash_price: 2150, currency: "USD", min_down_pct: 0, rec_down_pct: 0, annual_rate_pct: 0, max_term_years: 1,
+        promo: { en: "Quarter-end: 1st month at 50%", es: "Cierre de trimestre: 1er mes al 50%" },
+        value: { en: "Clients cut unplanned downtime ~32% — about $186k/yr saved for a 220-person plant", es: "Nuestros clientes reducen ~32% las paradas no planificadas — unos US$186 mil/año en una planta de 220 personas" },
+        media: [
+          { id: "b1m", type: "pdf", trigger: "FIRST_INFO", caption: { en: "Premium plan one-pager.pdf", es: "Ficha Plan Premium.pdf" }, hue: 215 },
+          { id: "b2m", type: "pdf", trigger: "SPECS_PDF", caption: { en: "SLA & technical sheet.pdf", es: "SLA y ficha técnica.pdf" }, hue: 225 },
+          { id: "b3m", type: "image", trigger: "PRICE_OBJECTION", caption: { en: "ROI case — stamping plant", es: "Caso ROI — planta de estampado" }, hue: 150 },
+          { id: "b4m", type: "video", trigger: "VIDEO_TOUR", caption: { en: "3-min product demo", es: "Demo del servicio (3 min)" }, hue: 280 }
+        ] },
+      { id: "b2", external: { salesforce: "01t5g00000Bz9AB", hubspot: "prod_77002", pipedrive: "prd_91", zoho: "ZP-9002", native: "cat_0202" },
+        name: { en: "Distribution Platform (annual)", es: "Plataforma de Distribución (anual)" }, keywords: ["platform", "plataforma", "distribution", "distribución", "software", "license", "licencia"],
+        category: { en: "Software", es: "Software" }, status: "available",
+        specs: { en: { "Users": "Unlimited", "Integrations": "Salesforce, SAP, Odoo", "Implementation": "30 days" }, es: { "Usuarios": "Ilimitados", "Integraciones": "Salesforce, SAP, Odoo", "Implementación": "30 días" } },
+        list_price: 24000, cash_price: 21600, currency: "USD", min_down_pct: 25, rec_down_pct: 50, annual_rate_pct: 0, max_term_years: 1,
+        promo: { en: "Free migration from spreadsheets", es: "Migración gratis desde Excel" },
+        value: { en: "Replaces 3 tools at 40% of the combined cost", es: "Reemplaza 3 herramientas al 40% del costo combinado" },
+        media: [ { id: "b5m", type: "pdf", trigger: "FIRST_INFO", caption: { en: "Platform brochure.pdf", es: "Brochure plataforma.pdf" }, hue: 230 } ] }
+    ],
+    scenarios: {
+      es: { label: "Jerga peruana + presupuesto", parts: ["ola hno q tal", "a cuanto sale el srvicio premiun al cntado??", "ta medio salado ah, tngo 2 lucas nomas", "se podra ver mñn saliendo de la chamba tipo 6 y media?"] },
+      en: { label: "Buyer shorthand", parts: ["hey", "whats the price on the premium maintenance plan, cash?", "kinda pricey ngl, budget is like 2k", "can we hop on a call tmrw after 5"] }
+    },
+    quick: { es: ["mándame la ficha técnica", "tienen video demo?", "sigue salado hno", "y la plataforma cuánto?"], en: ["send the SLA sheet pls", "got a demo video?", "still too pricey", "and the platform hm?"] },
+    seed: [
+      { name: "Sarah Chen", stage: "booked", lang: "en", channel: "Meta Lead Ad", pay: "CASH", budget: 2400, obj: 1, day: 0 },
+      { name: "Grupo Andino SAC", stage: "qualified", lang: "es", channel: "WhatsApp", pay: "FINANCING", budget: 20000, obj: 0 },
+      { name: "Atlas Mfg.", stage: "negotiation", lang: "en", channel: "SMS", pay: "CASH", budget: 22000, obj: 2, day: 10 },
+      { name: "Textiles Norte", stage: "visited", lang: "es", channel: "Instagram DM", pay: "CASH", budget: 2000, obj: 1, day: 5 },
+      { name: "Kevin Brooks", stage: "new", lang: "en", channel: "Meta Lead Ad", pay: null, budget: null, obj: 0 }
+    ]
+  }
+};
+
+const CRMS = {
+  native: { name: "PeruPTD Native CRM", short: "PeruPTD", color: "#ff5a1f", leadObj: "leads", eventObj: "appointments", catalogSrc: "catalog_items · catalog_media (Supabase Storage)" },
+  salesforce: { name: "Salesforce", short: "Salesforce", color: "#0176d3", leadObj: "Lead", eventObj: "Event", catalogSrc: "Product2 · PricebookEntry · ContentVersion" },
+  hubspot: { name: "HubSpot", short: "HubSpot", color: "#ff7a59", leadObj: "Contact + Deal", eventObj: "Meeting", catalogSrc: "crm/v3/objects/products · Files" },
+  pipedrive: { name: "Pipedrive", short: "Pipedrive", color: "#1a1a1a", leadObj: "Person + Deal", eventObj: "Activity (meeting)", catalogSrc: "Products · Files API" },
+  zoho: { name: "Zoho CRM", short: "Zoho", color: "#e42527", leadObj: "Leads", eventObj: "Events", catalogSrc: "Products · Attachments" }
+};
+
+const PROTOCOL = [
+  { key: "t24", when: { en: "T − 24h", es: "T − 24 h" }, what: { en: "Attendance confirmation", es: "Confirmación de asistencia" } },
+  { key: "t75", when: { en: "T + 75 min", es: "T + 75 min" }, what: { en: "Asks the rep: attended / no-show", es: "Pregunta al asesor: vino / no vino" } },
+  { key: "t45", when: { en: "+45 min after visit", es: "+45 min tras la visita" }, what: { en: "Post-visit media to review at home", es: "Material para revisar en casa" } },
+  { key: "d2", when: { en: "Day 2", es: "Día 2" }, what: { en: "Documents / financing options", es: "Documentos / opciones de pago" } },
+  { key: "d5", when: { en: "Day 5", es: "Día 5" }, what: { en: "2nd visit or open questions", es: "2da visita o dudas abiertas" } },
+  { key: "d10", when: { en: "Day 10", es: "Día 10" }, what: { en: "Closing bonus + call alert", es: "Bono de cierre + alerta de llamada" } },
+  { key: "d14", when: { en: "Day 14", es: "Día 14" }, what: { en: "Release hold & close file", es: "Liberar separación y cerrar ficha" } }
+];
+
+// ===== Layer 1 · Semantic NLU (demo build): slang/typo lexicon + intent & entity extraction, ES/EN/Spanglish =====
+const NLU = (() => {
+  const strip = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const fmt = (n) => n.toLocaleString("en-US");
+
+  function detectLanguage(text, previous) {
+    const t = " " + strip(text).replace(/[^a-z0-9ñ' ]/g, " ") + " ";
+    let es = 0, en = 0;
+    for (const w of LEXICON.senales_idioma.es) if (t.includes(" " + strip(w) + " ")) es += 1;
+    for (const w of LEXICON.senales_idioma.en) if (t.includes(" " + strip(w) + " ")) en += 1;
+    for (const tok of t.trim().split(/\s+/)) {
+      if (LEXICON.es[tok] && !LEXICON.en[tok]) es += 0.6;
+      if (LEXICON.en[tok] && !LEXICON.es[tok]) en += 0.6;
+    }
+    if (/[ñ¿¡]|ción\b/.test(text)) es += 1;
+    if (es === en) return previous || "es";
+    return es > en ? "es" : "en";
+  }
+
+  // numbers like 25k, 25 mil, 2 lucas, $25,000, 2k
+  function extractBudget(raw, slang) {
+    const t = strip(raw);
+    let m = t.match(/(\d+(?:[.,]\d+)?)\s*(lucas|luca)\b/);
+    if (m) { slang.push(`${m[1]} ${m[2]} (${fmt(Math.round(parseFloat(m[1].replace(",", ".")) * 1000))})`); return Math.round(parseFloat(m[1].replace(",", ".")) * 1000); }
+    m = t.match(/(\d+(?:[.,]\d+)?)\s*k\b/);
+    if (m) { slang.push(`${m[1]}k (${fmt(Math.round(parseFloat(m[1]) * 1000))})`); return Math.round(parseFloat(m[1].replace(",", ".")) * 1000); }
+    m = t.match(/(\d+(?:[.,]\d+)?)\s*mil\b/);
+    if (m) return Math.round(parseFloat(m[1].replace(",", ".")) * 1000);
+    m = t.match(/(?:\$|us\$|usd\s*)\s?(\d{1,3}(?:,\d{3})+|\d{3,})/);
+    if (m) return parseInt(m[1].replace(/,/g, ""), 10);
+    m = t.match(/\b(?:tengo|got|budget(?: is)?(?: like)?|presupuesto(?: de)?|cuento con)\s+(\d{3,})/);
+    if (m) return parseInt(m[1], 10);
+    return null;
+  }
+
+  function extractTime(raw, slang) {
+    const t = strip(raw);
+    let m = t.match(/(?:tipo|a las|como a las|round|around|at|@)\s*(\d{1,2})(?::(\d{2}))?\s*(y media|y cuarto|ish|pm|am|p\.m\.|de la tarde|de la noche)?/);
+    if (!m) m = t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(pm|am|ish|y media)\b/);
+    if (!m) return null;
+    let h = parseInt(m[1], 10), min = m[2] ? parseInt(m[2], 10) : 0;
+    const suf = m[3] || "";
+    if (suf === "y media") min = 30;
+    if (suf === "y cuarto") min = 15;
+    if (suf.includes("ish")) slang.push(`${m[1]}ish (≈ ${h}:00)`);
+    if (suf.startsWith("am")) { /* keep */ } else if (h >= 1 && h <= 7) h += 12;
+    else if (/pm|tarde|noche/.test(suf) && h < 12) h += 12;
+    if (h > 23) return null;
+    return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+  }
+
+  function relativeDate(t) {
+    if (/\b(manana|tomorrow)\b/.test(t)) return "TOMORROW";
+    if (/\b(hoy|today|tonight|esta noche)\b/.test(t)) return "TODAY";
+    if (/\b(sabado|saturday)\b/.test(t)) return /\bthis\b|\beste\b/.test(t) || true ? "THIS_SATURDAY" : "SATURDAY";
+    if (/\b(domingo|sunday)\b/.test(t)) return "THIS_SUNDAY";
+    if (/\b(lunes|monday)\b/.test(t)) return "MONDAY";
+    return null;
+  }
+
+  function expand(raw, lang, slang) {
+    const dict = LEXICON[lang];
+    for (const [from, to] of Object.entries((LEXICON.frases || {})[lang] || {})) {
+      const re = new RegExp(`\\b${from}\\b`, "gi");
+      if (re.test(raw)) { raw = raw.replace(re, to); if (!/^(q tal|a cuanto sale)$/.test(from)) slang.push(`${from} (${to})`); }
+    }
+    const out = raw.replace(/[A-Za-zÁÉÍÓÚáéíóúñÑ0-9'/]+/g, (tok) => {
+      const key = strip(tok);
+      if (/^\d+k$/.test(key) || /^\d+$/.test(key)) return tok;
+      const rep = dict[key];
+      if (rep && strip(rep) !== key) { slang.push(`${tok} (${rep})`); return rep; }
+      if (rep && rep !== tok && strip(rep) === key) return rep; // accent fix only
+      return tok;
+    });
+    return out;
+  }
+
+  const INTENTS = [
+    ["NOT_INTERESTED", /\b(no me interesa|ya no|not interested|no thanks|stop)\b/],
+    ["SLOT_SELECTION", /^\s*(?:opcion |option |la |the )?(1|2|3|primera|segunda|tercera|first|second|third)(?: one| opcion| option)?\s*[.!]?\s*$/],
+    ["RESCHEDULE", /\b(reprogram|cambiar la (cita|hora)|reschedule|move (my|the) (appointment|tour))/],
+    ["GREETING", /^(hola|buenas|hey|hi|hello|buenos dias|buenas tardes)\b/],
+    ["CASH_DISCOUNT", /\b(contado|cash|al contado|pago unico|paid in full)\b/],
+    ["PRICE_INQUIRY", /\b(cuanto|precio|cuesta|sale|how much|price|pricing|cost|hm)\b/],
+    ["OBJECTION_EXPENSIVE", /\b(caro|carisimo|expensive|too much|pricey|out of my budget|muy alto)\b/],
+    ["FINANCING_CALCULATION", /\b(cuotas?|financ\w*|credito|inicial|payment plans?|monthly|down payment|\bdown\b|installments?|plazos?)\b/],
+    ["BUDGET_STATEMENT", /\b(tengo|got|budget|presupuesto|cuento con|only have|solo tengo)\b/],
+    ["INSURANCE_INQUIRY", /\b(seguro|insurance|ppo|hmo|delta dental|cigna|metlife)\b/],
+    ["SPECS_AND_PLANS", /\b(planos?|floor ?plans?|pdf|ficha|brochure|specs?|guia|guide|sla|technical sheet|blueprints?)\b/],
+    ["VIDEO_TOUR", /\b(video|recorrido|walkthrough|tour video|demo video)\b/],
+    ["LOCATION_INQUIRY", /\b(donde|ubicacion|ubicados|direccion|where|located|location|address)\b/],
+    ["SCHEDULE_REQUEST", /\b(ver|visita|visitar|cita|agendar|tour|visit|appointment|book|call|reunion|puedo el|free this|se podra)\b/],
+    ["COURTESY_WAIT", /\b(lo pienso|te aviso|let me think|i'll let you know|despues te escribo)\b/]
+  ];
+
+  function normalize(raw, opts) {
+    const t0 = performance.now();
+    const items = (opts && opts.items) || [];
+    const lang = detectLanguage(raw, opts && opts.previousLanguage);
+    const slang = [];
+    const budget = extractBudget(raw, slang);
+    const time = extractTime(raw, slang);
+    let clean = expand(raw, lang, slang).replace(/\s+/g, " ").replace(/\?{2,}/g, "?").trim();
+    clean = clean.replace(/(\d+(?:[.,]\d+)?)\s*(lucas?|k)\b/gi, (_, n) => fmt(Math.round(parseFloat(n.replace(",", ".")) * 1000)));
+    clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+    const t = strip(clean) + " " + strip(raw);
+
+    const intents = [];
+    for (const [name, re] of INTENTS) if (re.test(name === "SLOT_SELECTION" || name === "GREETING" ? strip(raw).trim() : t)) intents.push(name);
+    if (budget && !intents.includes("BUDGET_STATEMENT")) intents.push("BUDGET_STATEMENT");
+    if (intents.length === 0) intents.push("GENERAL_INFO");
+
+    const ent = {};
+    const svc = items.find((it) => it.keywords.some((k) => new RegExp(`\\b${strip(k).replace(/[-]/g, "[- ]?")}\\b`).test(t)));
+    if (svc) { ent.service_keyword = svc.keywords.find((k) => new RegExp(`\\b${strip(k)}\\b`).test(t)) || svc.keywords[0]; ent.catalog_item_id = svc.id; }
+    if (intents.includes("CASH_DISCOUNT")) ent.payment_type = "CASH";
+    else if (intents.includes("FINANCING_CALCULATION")) ent.payment_type = "FINANCING";
+    if (intents.includes("INSURANCE_INQUIRY")) ent.insurance = (t.match(/delta dental|cigna|metlife|ppo|hmo/) || [lang === "es" ? "seguro" : "insurance"])[0];
+    if (budget) { ent.budget_amount = budget; ent.budget_currency = "LOCAL_OR_UNSPECIFIED"; }
+    if (intents.includes("OBJECTION_EXPENSIVE")) ent.price_objection = true;
+    const rel = relativeDate(t);
+    if (rel) ent.proposed_date_relative = rel;
+    if (time) ent.proposed_time = time;
+    if (/saliendo de(l)? (la chamba|trabajo|trabajar)|after work|despues del trabajo|salgo del trabajo/.test(t)) {
+      const [h, m] = (time || "18:00").split(":").map(Number);
+      const end = h * 60 + m - 30;
+      ent.work_end_constraint = `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+    }
+    const after = t.match(/\bafter (\d{1,2})\b|\bdespues de las (\d{1,2})\b/);
+    if (after && !ent.work_end_constraint) { const h = parseInt(after[1] || after[2], 10); ent.work_end_constraint = `${(h < 8 ? h + 12 : h)}:00`; }
+    const sel = strip(raw).trim().match(/^(?:opcion |option |la |the )?(1|2|3|primera|segunda|tercera|first|second|third)/);
+    if (intents.includes("SLOT_SELECTION") && sel) ent.selected_slot_index = { "1": 1, "2": 2, "3": 3, primera: 1, segunda: 2, tercera: 3, first: 1, second: 2, third: 3 }[sel[1]];
+
+    const order = ["SCHEDULE_REQUEST", "OBJECTION_EXPENSIVE", "FINANCING_CALCULATION", "PRICE_INQUIRY"];
+    let primary = intents[0];
+    if (intents.includes("SCHEDULE_REQUEST") && intents.includes("OBJECTION_EXPENSIVE")) primary = "SCHEDULE_AND_PRICE_OBJECTION";
+    else if (intents.includes("FINANCING_CALCULATION") && intents.includes("SCHEDULE_REQUEST")) primary = "FINANCING_AND_SCHEDULE";
+    else primary = order.find((o) => intents.includes(o)) || intents[0];
+
+    return {
+      detected_language: lang,
+      regional_slang_detected: [...new Set(slang)],
+      canonical_meaning: clean,
+      primary_intent: primary,
+      secondary_intents: intents.filter((i) => i !== primary),
+      extracted_entities: ent,
+      _ms: Math.max(1, Math.round(performance.now() - t0))
+    };
+  }
+
+  return { normalize, detectLanguage, strip };
+})();
+
+// ===== Layer 2 · Deterministic engines (catalog, budget/financing, 3-strike objections, agenda, media) =====
+// ===== Layer 3 · Bilingual composer. No number in a reply is invented: everything comes from the catalog item. =====
+const Engines = (() => {
+  const money = (n, lang) => (lang === "es" ? "US$" : "$") + Math.round(n).toLocaleString("en-US");
+  const L = (lang, en, es) => (lang === "es" ? es : en);
+
+  function annuity(principal, annualPct, months) {
+    if (!annualPct) return principal / months;
+    const r = annualPct / 100 / 12;
+    return (principal * r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
+  }
+
+  // ---------- budget & financing ----------
+  function budgetEngine(item, budget, payType, lang) {
+    const cash = item.cash_price, list = item.list_price;
+    const months = Math.max(1, Math.round(item.max_term_years * 12));
+    if (budget == null) {
+      if (payType !== "FINANCING") return null;
+      const down = list * (item.rec_down_pct || 0) / 100;
+      const m = annuity(list - down, item.annual_rate_pct, months);
+      return { rule: "financing_plan", text: L(lang,
+        `Payment plan: ${item.rec_down_pct}% down (${money(down, lang)}) and ~${money(m, lang)}/mo for ${months} months${item.annual_rate_pct ? ` (${item.annual_rate_pct}% APR est.)` : " at 0%"}.`,
+        `Plan de pagos: ${item.rec_down_pct}% de inicial (${money(down, lang)}) y ~${money(m, lang)}/mes por ${months} meses${item.annual_rate_pct ? ` (TEA ref. ${item.annual_rate_pct}%)` : " sin intereses"}.`),
+        calc: { down, monthly: Math.round(m), months } };
+    }
+    const gap = (cash - budget) / cash;
+    if (gap <= 0) return { rule: "≥ cash price", text: L(lang, `Your ${money(budget, lang)} covers the cash price (${money(cash, lang)}) ✅ ${item.promo.en}.`, `Con ${money(budget, lang)} cubres el precio al contado (${money(cash, lang)}) ✅ ${item.promo.es}.`) };
+    if (gap <= 0.08) return { rule: `${Math.round(gap * 100)}% below cash (≤ 8%)`, text: L(lang,
+      `You're only ${Math.round(gap * 100)}% away from the cash price (${money(cash, lang)}) — that's close enough to talk it over in person 🤝`,
+      `Estás a solo ${Math.round(gap * 100)}% del precio al contado (${money(cash, lang)}): eso se conversa en la reunión 🤝`) };
+    if (gap <= 0.2) {
+      const diff = cash - budget;
+      return { rule: `${Math.round(gap * 100)}% below cash (8–20%)`, text: L(lang,
+        `You can pay ${money(budget, lang)} now and cover the remaining ${money(diff, lang)} in 12 short installments of ~${money(diff / 12, lang)}.`,
+        `Puedes dar ${money(budget, lang)} ahora y cubrir los ${money(diff, lang)} restantes en 12 cuotas cortas de ~${money(diff / 12, lang)}.`) };
+    }
+    const minDown = list * item.min_down_pct / 100;
+    if (budget >= minDown) {
+      const loan = list - budget, m = annuity(loan, item.annual_rate_pct, months);
+      return { rule: `down payment ${Math.round((budget / list) * 100)}% ≥ ${item.min_down_pct}% min`, text: L(lang,
+        `With ${money(budget, lang)} down (${Math.round((budget / list) * 100)}%), you'd finance ${money(loan, lang)}: ~${money(m, lang)}/mo over ${item.max_term_years} years (${item.annual_rate_pct}% APR est.).`,
+        `Con ${money(budget, lang)} de inicial (${Math.round((budget / list) * 100)}%), financias ${money(loan, lang)}: ~${money(m, lang)}/mes a ${item.max_term_years} años (TEA ref. ${item.annual_rate_pct}%).`),
+        calc: { down: budget, loan, monthly: Math.round(m), months } };
+    }
+    return { rule: `below ${item.min_down_pct}% minimum down`, text: L(lang,
+      `The minimum down payment is ${item.min_down_pct}% (${money(minDown, lang)}). We can plan how to get there, or look at a lower-priced option.`,
+      `La inicial mínima es ${item.min_down_pct}% (${money(minDown, lang)}). Podemos ver cómo llegar o revisar una opción más económica.`) };
+  }
+
+  // ---------- 3-strike objection ladder ----------
+  function objectionEngine(item, strike, lang, ind) {
+    if (strike === 1) return { strike, alert: L(lang, `Price objection 1/3 handled (${item.name.en}) — FYI`, `Objeción de precio 1/3 atendida (${item.name.es}) — para tu información`), media: "PRICE_OBJECTION", text: L(lang,
+      `Totally fair to compare 🙂 ${item.value.en}.`, `Es normal comparar 🙂 ${item.value.es}.`) };
+    if (strike === 2) return { strike, alert: L(lang, "Price objection 2/3 — good time to call this lead", "Objeción de precio 2/3 — buen momento para llamarle"), text: L(lang,
+      `No pressure at all — come see it in person, zero commitment. Most people decide once they see it.`,
+      `Sin compromiso: ven a verlo en persona. La mayoría decide recién cuando lo ve.`) };
+    return { strike: 3, alert: L(lang, `URGENT: price objection 3/3 — escalated to ${ind.advisor}`, `URGENTE: objeción de precio 3/3 — escalado a ${ind.advisor}`), text: L(lang,
+      `I understand. I've asked ${ind.advisor} to personally review options for you — they'll reach out today.`,
+      `Te entiendo. Le pedí a ${ind.advisor} que revise personalmente opciones para ti; te escribe hoy.`) };
+  }
+
+  // ---------- agenda (fake but realistic busy calendar) ----------
+  const BUSY = new Set(["+1|19:00", "+2|10:00"]);
+  function dayOffset(rel) {
+    const now = new Date();
+    if (rel === "TOMORROW") return 1;
+    if (rel === "TODAY") return 0;
+    if (rel === "THIS_SATURDAY") return ((6 - now.getDay() + 7) % 7) || 7;
+    if (rel === "THIS_SUNDAY") return ((7 - now.getDay()) % 7) || 7;
+    if (rel === "MONDAY") return ((8 - now.getDay()) % 7) || 7;
+    return 1;
+  }
+  const toMin = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+  const toHHMM = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+  function slotLabel(slot, lang) {
+    const d = new Date(); d.setDate(d.getDate() + slot.off);
+    const day = d.toLocaleDateString(lang === "es" ? "es-PE" : "en-US", { weekday: "short", day: "numeric", month: "short" });
+    const [h, m] = slot.time.split(":").map(Number);
+    const t = new Date(2000, 0, 1, h, m).toLocaleTimeString(lang === "es" ? "es-PE" : "en-US", { hour: "numeric", minute: "2-digit" });
+    const rel = slot.off === 1 ? L(lang, "Tomorrow", "Mañana") : day.charAt(0).toUpperCase() + day.slice(1);
+    return `${rel} · ${t}`;
+  }
+
+  function agendaEngine(ent, lang) {
+    const off = dayOffset(ent.proposed_date_relative);
+    const earliest = ent.work_end_constraint ? toMin(ent.work_end_constraint) + 30 : 9 * 60;
+    const want = ent.proposed_time ? Math.max(toMin(ent.proposed_time), earliest) : Math.max(earliest, 10 * 60);
+    const slots = [], skipped = [];
+    for (let t = want; slots.length < 2 && t <= 20 * 60; t += 30) {
+      const s = { off, time: toHHMM(t) };
+      if (BUSY.has(`+${off}|${s.time}`)) { skipped.push(s.time); continue; }
+      slots.push(s);
+    }
+    const alt = { off: off + 1, time: toHHMM(Math.max(want, 10 * 60)) };
+    if (BUSY.has(`+${alt.off}|${alt.time}`)) alt.time = toHHMM(toMin(alt.time) + 60);
+    slots.push(alt);
+    return { slots, skipped, earliest: toHHMM(earliest) };
+  }
+
+  // ---------- media (max 2, never repeated) ----------
+  function mediaEngine(item, triggers, sentIds) {
+    const picked = [];
+    for (const trig of triggers) {
+      for (const m of item.media) {
+        if (picked.length >= 2) break;
+        if (m.trigger === trig && !sentIds.includes(m.id) && !picked.includes(m)) { picked.push(m); break; }
+      }
+    }
+    return picked;
+  }
+
+  // ---------- pipeline ----------
+  function run(nlu, ctx) {
+    const { lead, industry: ind, lang } = ctx;
+    const ent = nlu.extracted_entities, intents = [nlu.primary_intent, ...nlu.secondary_intents];
+    const has = (i) => intents.some((x) => x.includes(i));
+    const item = ind.items.find((i) => i.id === (ent.catalog_item_id || lead.interested_catalog_item_id)) || ind.items[0];
+    const trace = [], parts = [], triggers = [], crm = {}, alerts = [];
+    let slots = null, booked = null;
+    lead.interested_catalog_item_id = item.id;
+    crm.item = item.name[lang];
+
+    if (has("NOT_INTERESTED")) {
+      trace.push(["Courtesy", L(lang, "closes politely, stops follow-up", "cierra con cortesía, detiene el seguimiento")]);
+      lead.stage = "lost";
+      return { text: L(lang, "No problem at all, thanks for your time! If anything changes, I'm here 🙌", "¡Sin problema, gracias por tu tiempo! Si algo cambia, aquí estoy 🙌"), media: [], trace, crm: { stage: "lost" }, alerts };
+    }
+
+    if (has("SLOT_SELECTION") && lead.offered_slots && ent.selected_slot_index) {
+      const s = lead.offered_slots[ent.selected_slot_index - 1];
+      if (s) {
+        booked = { ...s, label: slotLabel(s, lang) };
+        lead.appointment = booked; lead.stage = "booked"; lead.offered_slots = null;
+        trace.push(["Agenda", L(lang, `slot ${ent.selected_slot_index} free → event created`, `opción ${ent.selected_slot_index} libre → evento creado`)]);
+        parts.push(L(lang, `Booked! ✅ Your ${ind.eventWord.en.toLowerCase()}: ${booked.label}\n📍 ${ind.location.en} — ${ind.mapsUrl}\nI'll confirm with you 24h before.`,
+          `¡Listo! ✅ Agendé tu ${ind.eventWord.es.toLowerCase()}: ${booked.label}\n📍 ${ind.location.es} — ${ind.mapsUrl}\nTe confirmo 24 h antes.`));
+        triggers.push("LOCATION_FACADE");
+        crm.stage = "booked"; crm.appointment = booked.label;
+        alerts.push(L(lang, `New ${ind.eventWord.en.toLowerCase()}: ${booked.label}`, `Nueva ${ind.eventWord.es.toLowerCase()}: ${booked.label}`));
+      }
+    }
+
+    if (!booked && (has("GREETING") || has("PRICE") || has("CASH") || has("GENERAL_INFO") || !lead.greeted)) {
+      const hi = !lead.greeted ? L(lang, `Hi! I'm ${ind.botName.en} from ${ind.company} 👋 `, `¡Hola! Soy ${ind.botName.es} de ${ind.company} 👋 `) : "";
+      lead.greeted = true;
+      const specs = Object.entries(item.specs[lang]).slice(0, 4).map(([k, v]) => `${k}: ${v}`).join(" · ");
+      let price = "";
+      if (has("PRICE") || has("CASH")) price = has("CASH")
+        ? L(lang, ` Cash price: ${money(item.cash_price, lang)} (list ${money(item.list_price, lang)}).`, ` Al contado: ${money(item.cash_price, lang)} (precio de lista ${money(item.list_price, lang)}).`)
+        : L(lang, ` It's ${money(item.list_price, lang)}, or ${money(item.cash_price, lang)} paying cash.`, ` Cuesta ${money(item.list_price, lang)}, o ${money(item.cash_price, lang)} al contado.`);
+      parts.push(`${hi}*${item.name[lang]}* — ${specs}.${price}`);
+      trace.push(["Catalog", `${item.external[ctx.crmKey]} · ${L(lang, "list", "lista")} ${money(item.list_price, lang)} · ${L(lang, "cash", "contado")} ${money(item.cash_price, lang)}`]);
+      if (!lead.sent_media_ids.length) triggers.push("FIRST_INFO");
+    }
+
+    if (ent.price_objection) {
+      lead.price_objection_count = Math.min(3, (lead.price_objection_count || 0) + 1);
+      const o = objectionEngine(item, lead.price_objection_count, lang, ind);
+      parts.push(o.text);
+      if (o.media) triggers.unshift(o.media);
+      alerts.push(o.alert);
+      trace.push([`Objection ${o.strike}/3`, o.alert]);
+      crm.objections = lead.price_objection_count;
+    }
+
+    if (ent.budget_amount != null || ent.payment_type === "FINANCING") {
+      const b = budgetEngine(item, ent.budget_amount ?? null, ent.payment_type, lang);
+      if (b) { parts.push(b.text); trace.push(["Budget", b.rule + (b.calc && b.calc.monthly ? ` → M = ${money(b.calc.monthly, lang)}/mo` : "")]); }
+      if (ent.budget_amount != null) { lead.stated_budget = ent.budget_amount; crm.budget = money(ent.budget_amount, lang); }
+    }
+    if (ent.payment_type) { lead.payment_method = ent.payment_type; crm.payment = ent.payment_type === "CASH" ? L(lang, "Cash", "Contado") : L(lang, "Financing", "Financiamiento"); }
+    if (ent.insurance && item.insurance) { parts.push(item.insurance[lang] + "."); trace.push(["Insurance", ent.insurance]); crm.payment = (crm.payment ? crm.payment + " / " : "") + "PPO"; }
+
+    if (has("SPECS_AND_PLANS")) { triggers.push("SPECS_PDF"); trace.push(["Media", "SPECS_PDF"]); parts.push(L(lang, "Sending you the document 👇", "Te envío el documento 👇")); }
+    if (has("VIDEO_TOUR")) { triggers.push("VIDEO_TOUR"); parts.push(L(lang, "Here's the video 🎬", "Aquí tienes el video 🎬")); }
+    if (has("LOCATION")) { triggers.push("LOCATION_FACADE"); parts.push(L(lang, `📍 ${ind.location.en} — ${ind.mapsUrl}`, `📍 ${ind.location.es} — ${ind.mapsUrl}`)); }
+
+    if (!booked && has("SCHEDULE")) {
+      const a = agendaEngine(ent, lang);
+      lead.offered_slots = a.slots;
+      slots = a.slots.map((s) => slotLabel(s, lang));
+      const nums = ["1️⃣", "2️⃣", "3️⃣"];
+      parts.push(L(lang, `Checked the live calendar${ent.work_end_constraint ? ` (you're off at ${ent.work_end_constraint}, so from ${a.earliest})` : ""}:\n`, `Revisé la agenda real${ent.work_end_constraint ? ` (sales del trabajo a las ${ent.work_end_constraint}, así que desde las ${a.earliest})` : ""}:\n`)
+        + slots.map((s, i) => `${nums[i]} ${s}`).join("\n") + L(lang, "\nReply 1, 2 or 3 👍", "\nResponde 1, 2 o 3 👍"));
+      trace.push(["Agenda", `${L(lang, "free slots", "turnos libres")} ≥ ${a.earliest}${a.skipped.length ? ` · ${L(lang, "skipped busy", "ocupado")} ${a.skipped.join(", ")}` : ""}`]);
+      if (lead.stage === "new") lead.stage = "qualified";
+    }
+
+    if (lead.stage === "new" && (lead.payment_method || lead.stated_budget)) lead.stage = "qualified";
+    if (!parts.length) {
+      parts.push(L(lang, `Happy to help! ${item.promo.en}. Want me to send the details or book a visit?`, `¡Con gusto! ${item.promo.es}. ¿Te envío los detalles o agendamos una visita?`));
+      trace.push(["AI fallback", L(lang, "guardrailed: catalog data only + forbidden phrases filter", "con guardas: solo datos del catálogo + filtro de frases prohibidas")]);
+    }
+
+    const media = mediaEngine(item, triggers, lead.sent_media_ids);
+    media.forEach((m) => lead.sent_media_ids.push(m.id));
+    if (media.length) trace.push(["Media", media.map((m) => `${m.trigger}:${m.id}`).join(" + ") + L(lang, " (max 2, no repeats)", " (máx. 2, sin repetir)")]);
+    crm.stage = lead.stage; crm.language = lang.toUpperCase();
+    crm.media = lead.sent_media_ids.length;
+    return { text: parts.join("\n\n"), media, trace, crm, alerts, slots, booked };
+  }
+
+  return { run, annuity, budgetEngine, money };
+})();
+
+// ===== PeruPTD AI Sales Hub — UI =====
+const T = {
+  en: { tagline: "Autonomous AI Sales Agent · Multi-CRM", lang: "Language", industry: "Industry", crm: "CRM",
+    tab1: "Live NLU & Chat Console", tab2: "Catalog, Pricing & Media", tab3: "Pipeline & 14-Day Follow-up",
+    play: "Play", type: "Type like a real customer… (typos, slang, Spanglish)", send: "Send",
+    debounce: (n, s) => `Debounce: ${n} fragment${n > 1 ? "s" : ""} — waiting ${s}s for more…`, debounceDone: (n) => `Batched ${n} message${n > 1 ? "s" : ""} into 1 reply`,
+    active: "Bot active", paused: (t) => `Paused until ${t} — human handling`, xray: "AI Brain X-Ray", xrayTag: "live NLU translation",
+    s1: "Batch & normalize", s2: "Layer 1 · Semantic NLU", s3: "Layer 2 · Deterministic engines", s4: "Layer 3 · Bilingual composer",
+    idle: "Send a message or press Play to watch the agent think.", slang: "slang / typos", intents: "intents", entities: "entities",
+    lang_detected: "language", media: "media", guard: ["no invented numbers", "forbidden phrases: clean", "anti-repetition < 80%", "max 2 files, no repeats"],
+    rec: "record", calendar: "Live calendar", feed: "Rep alerts", ctrl: "Rep controls", repReply: "Rep replies from phone", resume: "Resume bot", rescue: "Left on read 24h → rescue", reset: "New conversation",
+    synced: "Synced", catalogTitle: "Catalog lives in your CRM — the agent reads it live", list: "List price", cash: "Cash price", mindown: "Min down %", recdown: "Rec. down %", rate: "APR %", term: "Max term (yrs)",
+    promo: "Promo / bonus", value: "\"Too expensive\" value argument", addMedia: "Add media", trigger: "Trigger", addBtn: "+ Add", editHint: "Edit any price — the agent uses it on the next message.",
+    stages: { new: "New", qualified: "Qualified", booked: "Appointment booked", visited: "Attended", negotiation: "Negotiation (Day 10)", won: "Won", lost: "Lost" },
+    you: "Live demo lead", day: "Day", attended: "Attended", noshow: "No-show", pause: "Pause 2h", sold: "Sold", followTitle: "14-day post-visit protocol", pick: "Pick a lead to see its follow-up", log: "Activity",
+    status: { available: "Available", last_units: "Last units", sold_out: "Sold out" }, mediaTypes: { image: "Image", pdf: "PDF", video: "Video" } },
+  es: { tagline: "Agente Comercial IA Autónomo · Multi-CRM", lang: "Idioma", industry: "Industria", crm: "CRM",
+    tab1: "Consola en vivo NLU & Chat", tab2: "Catálogo, precios y multimedia", tab3: "Embudo y seguimiento 14 días",
+    play: "Reproducir", type: "Escribe como un cliente real… (errores, jerga, Spanglish)", send: "Enviar",
+    debounce: (n, s) => `Debounce: ${n} fragmento${n > 1 ? "s" : ""} — esperando ${s} s por si sigue escribiendo…`, debounceDone: (n) => `Agrupé ${n} mensaje${n > 1 ? "s" : ""} en 1 sola respuesta`,
+    active: "Bot activo", paused: (t) => `En pausa hasta las ${t} — atiende el asesor`, xray: "Rayos X del cerebro IA", xrayTag: "traducción NLU en vivo",
+    s1: "Agrupar y normalizar", s2: "Capa 1 · NLU semántico", s3: "Capa 2 · Motores determinísticos", s4: "Capa 3 · Redactor bilingüe",
+    idle: "Envía un mensaje o pulsa Reproducir para ver cómo piensa el agente.", slang: "jerga / errores", intents: "intenciones", entities: "entidades",
+    lang_detected: "idioma", media: "multimedia", guard: ["sin números inventados", "frases prohibidas: limpio", "anti-repetición < 80%", "máx. 2 archivos, sin repetir"],
+    rec: "registro", calendar: "Agenda en vivo", feed: "Alertas al asesor", ctrl: "Controles del asesor", repReply: "El asesor responde desde su celular", resume: "Reactivar bot", rescue: "Lo dejó en visto 24 h → rescate", reset: "Nueva conversación",
+    synced: "Sincronizado", catalogTitle: "El catálogo vive en tu CRM — el agente lo lee en vivo", list: "Precio lista", cash: "Precio contado", mindown: "Inicial mín. %", recdown: "Inicial recom. %", rate: "Tasa anual %", term: "Plazo máx. (años)",
+    promo: "Promo / bono", value: "Argumento contra \"está caro\"", addMedia: "Agregar multimedia", trigger: "Momento", addBtn: "+ Agregar", editHint: "Edita cualquier precio: el agente lo usa en el siguiente mensaje.",
+    stages: { new: "Nuevo", qualified: "Calificado", booked: "Cita agendada", visited: "Asistió", negotiation: "Negociación (Día 10)", won: "Vendido", lost: "Perdido" },
+    you: "Lead de la demo en vivo", day: "Día", attended: "Vino", noshow: "No vino", pause: "Pausar 2 h", sold: "Vendido", followTitle: "Protocolo post-visita de 14 días", pick: "Elige un lead para ver su seguimiento", log: "Actividad",
+    status: { available: "Disponible", last_units: "Últimas unidades", sold_out: "Agotado" }, mediaTypes: { image: "Imagen", pdf: "PDF", video: "Video" } }
+};
+const TRIGGERS = ["FIRST_INFO", "SPECS_PDF", "OPTION_RENDER", "PRICE_OBJECTION", "LOCATION_FACADE", "POST_VISIT_45M", "RESCUE_24H", "VIDEO_TOUR"];
+const ICON = { image: "🖼️", pdf: "📄", video: "🎬" };
+const FIELD_NAMES = {
+  native: { stage: "stage", payment: "payment_method", budget: "stated_budget", objections: "price_objection_count", language: "preferred_language", item: "interested_catalog_item_id", media: "sent_media_ids", appointment: "appointment_datetime", channel: "channel_origin" },
+  salesforce: { stage: "Status", payment: "Payment_Method__c", budget: "Initial_Budget__c", objections: "Price_Objection_Count__c", language: "Preferred_Language__c", item: "Interested_Product__c", media: "Media_Sent__c", appointment: "Event.StartDateTime", channel: "LeadSource" },
+  hubspot: { stage: "dealstage", payment: "payment_method", budget: "amount", objections: "price_objection_count", language: "hs_language", item: "line_item", media: "media_sent", appointment: "meeting.hs_meeting_start_time", channel: "hs_analytics_source" },
+  pipedrive: { stage: "deal.stage_id", payment: "Payment method", budget: "deal.value", objections: "Price objections", language: "Language", item: "deal.product", media: "Media sent", appointment: "activity.due_date", channel: "deal.origin" },
+  zoho: { stage: "Lead_Status", payment: "Payment_Method", budget: "Budget", objections: "Price_Objections", language: "Language", item: "Product_Interest", media: "Media_Sent", appointment: "Events.Start_DateTime", channel: "Lead_Source" }
+};
+
+const S = { lang: "en", ind: "realestate", crm: "salesforce", tab: "tab1", channel: "wa", busy: false, pending: [], timer: null, selected: "live", lastNLU: null, pausedUntil: null, alerts: [], logs: [] };
+let lead;
+const $ = (sel, root = document) => root.querySelector(sel);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : document.createTextNode(String(k)));
+  return e;
+};
+const t = (k) => T[S.lang][k];
+const IND = () => INDUSTRIES[S.ind];
+const now = () => new Date().toLocaleTimeString(S.lang === "es" ? "es-PE" : "en-US", { hour: "numeric", minute: "2-digit" });
+
+function newLead() {
+  lead = { stage: "new", sent_media_ids: [], price_objection_count: 0, preferred_language: S.lang, channel_origin: S.channel === "wa" ? "WhatsApp" : "SMS (Twilio)", greeted: false, offered_slots: null, appointment: null, follow: {} };
+  S.lastNLU = null; S.alerts = []; S.pausedUntil = null; S.pending = [];
+}
+
+// ---------------- top bar ----------------
+function renderTop() {
+  const fijo = (key) => Live.cfg.on && (key === "ind" || key === "crm");
+  const seg = (key, opts) => el("div", { class: "seg", role: "group" }, opts.map(([v, label]) => el("button", { "aria-pressed": S[key] === v ? "true" : "false", disabled: fijo(key) && S[key] !== v, onclick: () => { if (S[key] === v) return; S[key] = v; if (key === "ind") newLead(); if (key === "lang" && lead.stage === "new" && !lead.greeted) lead.preferred_language = v; render(); } }, label)));
+  $("#top").replaceChildren(
+    el("div", { class: "brand" }, el("div", { class: "mark" }, "PTD"), el("div", {}, el("h1", {}, "PeruPTD AI Sales Hub"), el("small", {}, t("tagline")))),
+    el("div", { class: "switch" }, el("span", {}, t("lang")), seg("lang", [["en", "🇺🇸 English"], ["es", "🇪🇸 Español"]])),
+    el("div", { class: "switch" }, el("span", {}, t("industry")), seg("ind", Object.entries(INDUSTRIES).filter(([k]) => k !== "live" || Live.cfg.on).map(([k, v]) => [k, `${v.icon} ${v.name[S.lang]}`]))),
+    el("div", { class: "switch" }, el("span", {}, t("crm")), seg("crm", Object.entries(CRMS).map(([k, v]) => [k, v.short]))),
+    el("button", { class: "mode " + (Live.cfg.on ? "on" : ""), onclick: renderLivePanel, title: "Live API Mode" }, Live.cfg.on ? "● LIVE API" : "○ DEMO DATA", " ⚙")
+  );
+  const n = lead.stage !== "new" ? 1 : 0;
+  $("#tabs").replaceChildren(...["tab1", "tab2", "tab3"].map((k) => el("button", { role: "tab", "aria-selected": S.tab === k ? "true" : "false", onclick: () => { S.tab = k; render(); if (k === "tab3" && Live.cfg.on) abrirTab3(); } }, t(k), k === "tab3" && n ? el("span", { class: "count" }, "LIVE") : null)));
+}
+
+// ---------------- tab 1 ----------------
+function thumb(m, lang) {
+  const fondo = m.url && m.type === "image" ? `background: center / cover url("${String(m.url).replace(/"/g, "")}")` : `background: linear-gradient(135deg, hsl(${m.hue} 55% 46%), hsl(${(m.hue + 40) % 360} 60% 32%))`;
+  return el("div", { class: "thumb" }, el("div", { class: "art", style: fondo }, m.url && m.type === "image" ? "" : ICON[m.type]),
+    el("div", { class: "cap" }, m.caption[lang], el("span", { class: "trg" }, m.trigger)));
+}
+
+function addMsg(kind, text, extra = {}) {
+  const box = $("#msgs"); if (!box) return;
+  const ind = IND();
+  const who = kind === "bot" ? `${ind.botName[S.lang]} · AI` : kind === "rep" ? `${ind.advisor} · 📱` : null;
+  const rich = String(text).split(/(\*[^*\n]+\*)/).map((p) => /^\*[^*]+\*$/.test(p) ? el("b", {}, p.slice(1, -1)) : p);
+  const bubble = el("div", { class: "bubble" }, who ? el("div", { class: "who" }, who) : null, rich,
+    extra.media && extra.media.length ? el("div", { class: "media-row" }, extra.media.map((m) => thumb(m, extra.lang || S.lang))) : null,
+    el("div", { class: "time" }, now() + (kind !== "me" ? " ✓✓" : "")));
+  const row = el("div", { class: `row ${kind}` }, kind === "sys" ? el("div", { class: "sysnote" }, text) : bubble);
+  box.append(row); box.scrollTop = box.scrollHeight;
+  if (!extra.noStore) S.logs.push({ kind, text, media: extra.media, lang: extra.lang });
+  return row;
+}
+
+function setStage(n, cls) { const st = $(`#st${n}`); if (st) st.className = `stage ${cls || ""}`; }
+
+function receive(text) {
+  if (!text.trim()) return;
+  addMsg("me", text);
+  if (S.pausedUntil) { addMsg("sys", S.lang === "es" ? "Mensaje guardado en el CRM. El bot no responde: el asesor está atendiendo." : "Message logged to the CRM. Bot stays quiet: a human is handling this chat."); return; }
+  S.pending.push(text);
+  clearInterval(S.timer);
+  let left = 15;
+  const strip = $("#strip-text");
+  const tick = () => { if (strip) strip.textContent = t("debounce")(S.pending.length, left); };
+  tick(); setStage(1, "on");
+  S.timer = setInterval(() => { left -= 3; if (left <= 0) { clearInterval(S.timer); flush(); } else tick(); }, 600);
+}
+
+async function flush() {
+  const batch = S.pending.splice(0);
+  if (!batch.length) return;
+  const strip = $("#strip-text"); if (strip) strip.textContent = t("debounceDone")(batch.length);
+  const ind = IND();
+  let live = null;
+  if (Live.cfg.on) {
+    try { live = await Live.chat(batch.join("\n")); } catch (e) { toast((S.lang === "es" ? "Backend no respondió, uso la demo: " : "Backend didn't answer, using demo: ") + e.message, true); }
+  }
+  const nlu = live ? live.nlu : NLU.normalize(batch.join("\n"), { items: ind.items, previousLanguage: lead.preferred_language });
+  S.lastNLU = { batch, nlu, result: null };
+  lead.preferred_language = nlu.detected_language;
+  renderXray(1);
+  const typing = $("#msgs").appendChild(el("div", { class: "row bot" }, el("div", { class: "bubble typing" }, el("i"), el("i"), el("i"))));
+  $("#msgs").scrollTop = $("#msgs").scrollHeight;
+  await wait(650); renderXray(2);
+  const result = live ? live.result : Engines.run(nlu, { lead, industry: ind, lang: nlu.detected_language, crmKey: S.crm });
+  S.lastNLU.result = result;
+  await wait(650); renderXray(3);
+  await wait(500);
+  typing.remove();
+  addMsg("bot", result.text, { media: result.media, lang: nlu.detected_language });
+  renderXray(4);
+  result.alerts.forEach((a) => S.alerts.unshift({ text: a, hot: /URGENT|URGENTE|call|llamar|New|Nueva|🚨|📅/.test(a), time: now() }));
+  renderSide(result.crm);
+  renderComposer();
+}
+
+function renderXray(step) {
+  const x = S.lastNLU; const box = $("#xbody"); if (!box) return;
+  if (!x) { box.replaceChildren(el("p", { class: "muted-x" }, t("idle")), ...[1, 2, 3, 4].map((n) => el("div", { class: "stage", id: `st${n}` }, el("h3", {}, el("span", { class: "n" }, `0${n}`), t(`s${n}`))))); return; }
+  const { batch, nlu, result } = x;
+  const ent = nlu.extracted_entities;
+  const s1 = el("div", { class: `stage ${step === 1 ? "on" : "done"}`, id: "st1" }, el("h3", {}, el("span", { class: "n" }, "01"), t("s1"), el("span", { class: "ms" }, `${batch.length} msg · 15 s`)),
+    el("div", { class: "raw" }, batch.map((b) => `› ${b}`).join("\n")));
+  const s2 = el("div", { class: `stage ${step === 2 ? "on" : step > 2 ? "done" : ""}`, id: "st2" }, el("h3", {}, el("span", { class: "n" }, "02"), t("s2"), el("span", { class: "ms" }, `${nlu._ms} ms · ${t("lang_detected")}: ${nlu.detected_language.toUpperCase()}`)),
+    el("div", { class: "canon" }, "“" + nlu.canonical_meaning + "”"),
+    nlu.regional_slang_detected.length ? el("div", { class: "slangs" }, nlu.regional_slang_detected.map((s) => { const m = s.match(/^(.*?) \((.*)\)$/); return el("span", { class: "slang" }, el("b", {}, m ? m[1] : s), " → ", el("em", {}, m ? m[2] : "")); })) : null,
+    el("div", { class: "intents" }, el("span", { class: "intent primary" }, nlu.primary_intent), nlu.secondary_intents.map((i) => el("span", { class: "intent" }, i))),
+    el("dl", { class: "ents" }, Object.entries(ent).flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, typeof v === "number" ? v.toLocaleString("en-US") : String(v))])),
+    el("details", { class: "json" }, el("summary", {}, "NormalizedTurn JSON"), el("pre", {}, JSON.stringify((({ _ms, ...r }) => r)(nlu), null, 2))));
+  const s3 = el("div", { class: `stage ${step === 3 ? "on" : step > 3 ? "done" : ""}`, id: "st3" }, el("h3", {}, el("span", { class: "n" }, "03"), t("s3"), el("span", { class: "ms" }, CRMS[S.crm].short + " catalog")),
+    step >= 3 && result ? el("ul", { class: "trace" }, result.trace.map(([a, b]) => el("li", {}, el("b", {}, a), el("span", {}, b)))) : el("p", { class: "muted-x" }, "…"));
+  const s4 = el("div", { class: `stage ${step === 4 ? "on" : ""}`, id: "st4" }, el("h3", {}, el("span", { class: "n" }, "04"), t("s4"), el("span", { class: "ms" }, `${t("lang_detected")}: ${nlu.detected_language.toUpperCase()}`)),
+    step >= 4 && result ? [el("div", { class: "muted-x" }, `${t("media")}: ${result.media.length ? result.media.map((m) => m.caption[nlu.detected_language]).join(" + ") : "—"}`), el("div", { class: "guard" }, t("guard").map((g) => el("span", {}, "✓ " + g)))] : el("p", { class: "muted-x" }, "…"));
+  box.replaceChildren(s1, s2, s3, s4);
+}
+
+function fieldRows(crmDelta) {
+  const F = FIELD_NAMES[S.crm], ind = IND(), L = S.lang;
+  const item = ind.items.find((i) => i.id === lead.interested_catalog_item_id);
+  const rows = [
+    ["stage", t("stages")[lead.stage] || lead.stage], ["channel", lead.channel_origin], ["language", (lead.preferred_language || "").toUpperCase()],
+    ["item", item ? item.name[L] : "—"], ["payment", lead.payment_method ? (lead.payment_method === "CASH" ? (L === "es" ? "Contado" : "Cash") : (L === "es" ? "Financiamiento" : "Financing")) : "—"],
+    ["budget", lead.stated_budget ? Engines.money(lead.stated_budget, L) : "—"], ["objections", `${lead.price_objection_count || 0} / 3`],
+    ["media", !lead.sent_media_ids.length ? "—" : (Live.cfg.on || lead.sent_media_ids.length > 3) ? `${lead.sent_media_ids.length} ${L === "es" ? "archivos" : "files"}` : lead.sent_media_ids.join(", ")], ["appointment", lead.appointment ? lead.appointment.label : "—"]
+  ];
+  const changed = new Set(Object.keys(crmDelta || {}));
+  if (crmDelta && crmDelta.item) changed.add("item");
+  return rows.map(([k, v]) => el("div", { class: "field" + (changed.has(k) || (k === "stage" && crmDelta && crmDelta.stage) ? " flash" : "") }, el("code", {}, F[k]), el("span", {}, v)));
+}
+
+function renderCalendar() {
+  const box = el("div", { class: "cal" });
+  const days = [0, 1, 2].map((o) => { const d = new Date(); d.setDate(d.getDate() + (lead.offered_slots ? lead.offered_slots[0].off + o : 1 + o)); return d; });
+  box.append(el("div"), ...days.map((d) => el("div", { class: "hd" }, d.toLocaleDateString(S.lang === "es" ? "es-PE" : "en-US", { weekday: "short", day: "numeric" }))));
+  const base = lead.offered_slots ? lead.offered_slots[0].off : 1;
+  for (let h = 9; h <= 20; h++) {
+    box.append(el("div", { class: "hr" }, `${h}:00`));
+    [0, 1, 2].forEach((o) => {
+      const off = base + o;
+      const hit = (s) => s && s.off === off && parseInt(s.time, 10) === h;
+      let cls = "c";
+      if ((off === 1 && h === 19) || (off === 2 && h === 10) || (h === 13)) cls += " busy";
+      if (lead.offered_slots && lead.offered_slots.some(hit)) cls += " offer";
+      if (lead.appointment && hit(lead.appointment)) cls = "c booked";
+      box.append(el("div", { class: cls, title: `${h}:00` }));
+    });
+  }
+  return box;
+}
+
+function renderSide(crmDelta) {
+  const c = CRMS[S.crm], col = $("#crmcol"); if (!col) return;
+  const statusPill = S.pausedUntil ? el("span", { class: "pill warn" }, t("paused")(S.pausedUntil)) : el("span", { class: "pill" }, t("active"));
+  col.replaceChildren(
+    el("section", { class: "panel" }, el("div", { class: "crmhead", style: `background:${c.color}` }, el("b", {}, `${c.name} · ${c.leadObj}`), el("small", {}, `${t("synced")} ${now()}`)), el("div", { class: "fields" }, fieldRows(crmDelta))),
+    el("section", { class: "panel" }, el("h2", {}, "📅 ", t("calendar"), el("span", { class: "tag" }, `${c.eventObj} · Google/Outlook`)), renderCalendar()),
+    el("section", { class: "panel" }, el("h2", {}, t("ctrl"), el("span", { class: "tag" }, statusPill)),
+      el("div", { class: "controls" },
+        S.pausedUntil ? el("button", { class: "btn small", onclick: () => { S.pausedUntil = null; renderSide(); renderStrip(); } }, "▶ " + t("resume"))
+          : el("button", { class: "btn small", onclick: repReply }, "📱 " + t("repReply")),
+        el("button", { class: "btn small", onclick: rescue }, "🛟 " + t("rescue")),
+        el("button", { class: "btn small", onclick: () => { newLead(); render(); } }, "↺ " + t("reset")))),
+    el("section", { class: "panel" }, el("h2", {}, "🔔 ", t("feed")), el("div", { class: "feed" }, S.alerts.length ? S.alerts.map((a) => el("div", { class: a.hot ? "hot" : "" }, `${a.time} · ${a.text}`)) : el("div", {}, "—")))
+  );
+  renderStrip();
+}
+
+function renderStrip() {
+  const s = $("#strip-pill"); if (!s) return;
+  s.replaceChildren(S.pausedUntil ? el("span", { class: "pill warn" }, t("paused")(S.pausedUntil)) : el("span", { class: "pill" }, t("active")));
+}
+
+function repReply() {
+  const until = new Date(Date.now() + 2 * 3600e3).toLocaleTimeString(S.lang === "es" ? "es-PE" : "en-US", { hour: "numeric", minute: "2-digit" });
+  addMsg("rep", S.lang === "es" ? "Hola, soy el asesor 👋 yo te ayudo personalmente con la visita." : "Hi, it's your rep 👋 I'll personally help you with the visit.");
+  S.pausedUntil = until;
+  S.alerts.unshift({ text: S.lang === "es" ? "Eco detectado: el asesor respondió a mano → bot en pausa 2 h" : "Echo detected: rep replied by hand → bot paused 2h", hot: true, time: now() });
+  renderSide();
+}
+
+function rescue() {
+  if (S.pausedUntil) return;
+  const ind = IND(), item = ind.items.find((i) => i.id === lead.interested_catalog_item_id) || ind.items[0];
+  const pick = item.media.find((m) => !lead.sent_media_ids.includes(m.id) && ["RESCUE_24H", "OPTION_RENDER", "POST_VISIT_45M", "VIDEO_TOUR", "SPECS_PDF"].includes(m.trigger));
+  if (pick) lead.sent_media_ids.push(pick.id);
+  const L = lead.preferred_language || S.lang;
+  addMsg("bot", L === "es" ? `¡Hola! Te dejo algo más para que lo veas con calma 😊 ¿Te guardo un horario para conocer *${item.name.es}*?` : `Hey! Here's one more thing to look at when you have a minute 😊 Want me to hold a time for you to see the *${item.name.en}*?`, { media: pick ? [pick] : [], lang: L });
+  S.alerts.unshift({ text: L === "es" ? "Rescate 24 h enviado dentro de la ventana gratuita de Meta" : "24h rescue sent inside Meta's free window", hot: false, time: now() });
+  renderSide({ media: 1 });
+}
+
+function renderComposer() {
+  const box = $("#composer"); if (!box) return;
+  const ind = IND(), sc = ind.scenarios[S.lang];
+  const playScenario = async () => { if (S.busy) return; S.busy = true; for (const p of sc.parts) { receive(p); await wait(900); } S.busy = false; };
+  const chips = [el("button", { class: "chip play", onclick: playScenario }, `▶ ${t("play")}: ${sc.label}`)];
+  if (lead.offered_slots) chips.push(...[1, 2, 3].map((n) => el("button", { class: "chip slot", onclick: () => receive(String(n)) }, `${n}️⃣`)));
+  chips.push(...ind.quick[S.lang].map((q) => el("button", { class: "chip", onclick: () => receive(q) }, q)));
+  const input = el("input", { id: "msg-input", type: "text", placeholder: t("type"), "aria-label": t("type"), onkeydown: (e) => { if (e.key === "Enter") { receive(e.target.value); e.target.value = ""; } } });
+  box.replaceChildren(el("div", { class: "chips" }, chips), el("div", { class: "sendrow" }, input, el("button", { class: "btn primary", onclick: () => { receive(input.value); input.value = ""; } }, t("send"))));
+}
+
+function renderTab1() {
+  const ind = IND();
+  const chan = el("div", { class: "chan" }, [["wa", "WhatsApp"], ["sms", "SMS"]].map(([v, l]) => el("button", { "aria-pressed": S.channel === v ? "true" : "false", onclick: () => { S.channel = v; lead.channel_origin = v === "wa" ? "WhatsApp" : "SMS (Twilio)"; render(); } }, l)));
+  const phone = el("section", { class: `panel phone ${S.channel === "sms" ? "sms" : ""}` },
+    el("div", { class: "phone-head" }, el("div", { class: "avatar" }, "C"), el("div", {}, el("b", {}, ind.company), el("small", {}, S.channel === "wa" ? "WhatsApp Business · Meta Cloud API" : "SMS · Twilio +1 (512) 555-0100")), chan),
+    el("div", { class: "status-strip" }, el("span", { id: "strip-text" }, "Debounce 15 s · Lead Ads 90 s"), el("span", { id: "strip-pill", class: "pill-wrap", style: "margin-left:auto" })),
+    el("div", { class: "msgs", id: "msgs" }), el("div", { class: "composer", id: "composer" }));
+  const xray = el("section", { class: "panel xray" }, el("h2", {}, "🧠 ", t("xray"), el("span", { class: "tag" }, t("xrayTag"))), el("div", { class: "xbody", id: "xbody" }));
+  $("#tab1").replaceChildren(el("div", { class: "console" }, phone, xray, el("div", { class: "crmcol", id: "crmcol" })));
+  for (const m of S.logs) addMsg(m.kind, m.text, { media: m.media, lang: m.lang, noStore: true });
+  renderComposer(); renderXray(S.lastNLU ? 4 : 0); renderSide();
+}
+
+// ---------------- tab 2 ----------------
+function renderTab2() {
+  const ind = IND(), c = CRMS[S.crm], L = S.lang;
+  const num = (item, key, label, step = "1") => el("label", {}, label, el("input", { type: "number", step, value: item[key], id: `${item.id}-${key}`, oninput: (e) => { item[key] = parseFloat(e.target.value) || 0; Live.guardarCampo(item, key, item[key], L); } }));
+  const cards = ind.items.map((item) => {
+    const trig = el("select", { id: `${item.id}-trig`, "aria-label": t("trigger") }, TRIGGERS.map((x) => el("option", { value: x }, x)));
+    const typ = el("select", { id: `${item.id}-typ`, "aria-label": "type" }, Object.keys(ICON).map((x) => el("option", { value: x }, t("mediaTypes")[x])));
+    return el("article", { class: "card" },
+      el("header", {}, el("div", {}, el("h3", {}, item.name[L]), el("small", {}, `${c.short} ID ${item.external[S.crm]} · ${item.category[L]}`)),
+        el("span", { class: "pill" + (item.status === "last_units" ? " warn" : "") }, t("status")[item.status])),
+      el("div", { class: "specs" }, Object.entries(item.specs[L]).map(([k, v]) => el("span", {}, `${k}: ${v}`))),
+      el("div", { class: "grid6" }, num(item, "list_price", t("list")), num(item, "cash_price", t("cash")), num(item, "min_down_pct", t("mindown")),
+        num(item, "rec_down_pct", t("recdown")), num(item, "annual_rate_pct", t("rate"), "0.1"), num(item, "max_term_years", t("term"))),
+      el("label", { class: "wide" }, t("promo"), el("textarea", { id: `${item.id}-promo`, oninput: (e) => { item.promo[L] = e.target.value; Live.guardarCampo(item, "promo", e.target.value, L); } }, item.promo[L])),
+      el("label", { class: "wide" }, t("value"), el("textarea", { id: `${item.id}-value`, oninput: (e) => { item.value[L] = e.target.value; Live.guardarCampo(item, "value", e.target.value, L); } }, item.value[L])),
+      el("div", { class: "mediagrid" }, item.media.map((m) => thumb(m, L))),
+      el("div", { class: "addmedia" }, t("addMedia") + ":", typ, trig, el("button", { class: "btn small", onclick: () => {
+        const n = item.media.length + 1;
+        item.media.push({ id: `${item.id}-u${n}`, type: typ.value, trigger: trig.value, caption: { en: `New ${typ.value} #${n}`, es: `Nuevo ${t("mediaTypes")[typ.value].toLowerCase()} #${n}` }, hue: (n * 47) % 360 });
+        renderTab2();
+      } }, t("addBtn"))));
+  });
+  $("#tab2").replaceChildren(
+    el("div", { class: "syncbar" }, el("span", { class: "dot" }), el("b", {}, t("catalogTitle")), el("code", {}, c.catalogSrc), el("span", { style: "color:var(--muted)" }, `${t("synced")} ${now()} · ${t("editHint")}`),
+      Live.cfg.on ? el("button", { class: "btn small", style: "margin-left:auto", onclick: async (e) => { e.target.disabled = true; try { const r = await Live.sincronizar(); toast(`⟳ ${r.items} items · ${r.media} media`); } catch (err) { toast("⚠ " + err.message, true); } render(); } }, S.lang === "es" ? `⟳ Sincronizar desde ${c.short}` : `⟳ Sync from ${c.short}`) : null),
+    el("div", { class: "cards" }, cards));
+}
+
+// ---------------- tab 3 ----------------
+function boardLeads() {
+  if (Live.cfg.on) {
+    return Live.cfg.leads.filter((l) => l.stage !== "lost").map((l) => ({ id: l.sender_id, name: l.nombre, stage: l.stage === "no_show" ? "booked" : l.stage, lang: l.lang,
+      channel: l.channel, pay: l.pay, budget: l.budget, obj: l.obj, day: l.day || 0, noshow: l.noshow, followup: l.followup, live: l.sender_id === Live.cfg.sender, remote: true }));
+  }
+  const ind = IND();
+  const seeded = ind.seed.map((s, i) => ({ id: `s${i}`, ...s }));
+  const live = { id: "live", name: t("you"), stage: lead.stage === "lost" ? "new" : lead.stage, lang: lead.preferred_language, channel: lead.channel_origin, pay: lead.payment_method, budget: lead.stated_budget, obj: lead.price_objection_count, day: lead.day || 0, live: true };
+  return [live, ...seeded];
+}
+
+const LIVE_KEYS = { t45: "post_45m", d2: "post_48h", d5: "post_dia5", d10: "post_dia10", d14: "post_dia14" };
+function protocolState(l, key) {
+  const order = ["t24", "t75", "t45", "d2", "d5", "d10", "d14"];
+  if (l.remote) {
+    if (l.noshow && order.indexOf(key) >= 2) return "skip";
+    const visto = ["visited", "negotiation", "won"].includes(l.stage);
+    if (key === "t24" || key === "t75") return visto ? "done" : (l.stage === "booked" && key === "t24" ? "next" : "");
+    if ((l.followup || []).includes(LIVE_KEYS[key])) return "done";
+    const primera = order.slice(2).find((k) => !(l.followup || []).includes(LIVE_KEYS[k]));
+    return visto && l.stage !== "won" && primera === key ? "next" : "";
+  }
+  const done = { new: 0, qualified: 0, booked: 0, visited: 3, negotiation: 6, won: 7 }[l.stage] || 0;
+  const dayDone = l.stage === "visited" ? Math.min(7, 3 + ((l.day >= 2) + (l.day >= 5))) : done;
+  const i = order.indexOf(key);
+  if (l.noshow && i >= 2) return "skip";
+  if (l.stage === "won" && i >= dayDone) return "skip";
+  if (i < dayDone) return "done";
+  if (i === dayDone && ["booked", "visited", "negotiation"].includes(l.stage)) return "next";
+  return "";
+}
+
+function renderTab3() {
+  const leads = boardLeads(), ind = IND();
+  const cols = ind.stages.map((st) => {
+    const inCol = leads.filter((l) => l.stage === st);
+    return el("div", { class: "col" }, el("h3", {}, t("stages")[st], el("span", {}, inCol.length)),
+      inCol.map((l) => el("button", { class: "lead" + (l.live ? " live" : ""), onclick: () => { S.selected = l.id; renderTab3(); } },
+        el("b", {}, l.name), el("div", { class: "meta" }, el("span", {}, l.lang === "es" ? "🇪🇸" : "🇺🇸"), el("span", {}, l.channel), l.budget ? el("span", {}, Engines.money(l.budget, S.lang)) : null),
+        el("div", { class: "meta" }, el("span", { class: "strikes", title: "price objections" }, [1, 2, 3].map((n) => el("i", { class: n <= (l.obj || 0) ? "on" : "" }))), l.day ? el("span", {}, `${t("day")} ${l.day}`) : null))));
+  });
+  const sel = leads.find((l) => l.id === S.selected) || leads[0];
+  if (!sel) {
+    $("#tab3").replaceChildren(el("div", { class: "board" }, cols), el("p", { class: "muted" }, S.lang === "es" ? "Aún no hay leads en el CRM: escribe en la consola en vivo." : "No leads in the CRM yet: send a message in the live console."));
+    return;
+  }
+  const remoto = (nombre) => async () => { try { const r = await Live.accion(sel.id, nombre); toast(r.resultado || "✓"); } catch (e) { toast("⚠ " + e.message, true); } renderTab3(); };
+  const act = (fn, nombre) => sel.remote ? remoto(nombre) : () => { fn(sel); renderTab3(); };
+  const setStage = (l, st) => { if (l.live) lead.stage = st; else ind.seed[parseInt(l.id.slice(1), 10)].stage = st; };
+  const timeline = el("ol", { class: "timeline" }, PROTOCOL.map((p) => { const s = protocolState(sel, p.key); return el("li", { class: s }, el("span", { class: "ic" }, s === "done" ? "✓" : s === "next" ? "•" : ""), el("span", { class: "when" }, p.when[S.lang]), el("span", {}, p.what[S.lang]), s === "next" ? el("span", { class: "pill warn" }, S.lang === "es" ? "siguiente" : "next") : el("span")); }));
+  const controls = el("div", { class: "controls" },
+    el("button", { class: "btn small", onclick: act((l) => { setStage(l, "visited"); if (l.live) lead.day = 0; }, "vino") }, "✅ " + t("attended")),
+    el("button", { class: "btn small", onclick: act((l) => { if (l.live) { lead.noshow = true; } else ind.seed[parseInt(l.id.slice(1), 10)].noshow = true; S.alerts.unshift({ text: S.lang === "es" ? "No vino → mensaje de reprogramación enviado" : "No-show → reschedule message sent", hot: true, time: now() }); }, "no vino") }, "❌ " + t("noshow")),
+    el("button", { class: "btn small", onclick: act(() => { repReply(); }, "pausa") }, "⏸ " + t("pause")),
+    el("button", { class: "btn small", onclick: act((l) => setStage(l, "won"), "vendido") }, "🏆 " + t("sold")));
+  $("#tab3").replaceChildren(el("div", { class: "board" }, cols),
+    el("div", { class: "detail" },
+      el("section", { class: "panel" }, el("h2", {}, t("followTitle"), el("span", { class: "tag" }, sel.name)), timeline, controls),
+      el("section", { class: "panel" }, el("h2", {}, t("log"), el("span", { class: "tag" }, `${CRMS[S.crm].name} · ${CRMS[S.crm].leadObj}`)),
+        el("div", { class: "feed", style: "max-height:330px" }, S.alerts.length ? S.alerts.map((a) => el("div", { class: a.hot ? "hot" : "" }, `${a.time} · ${a.text}`)) : el("div", {}, t("pick"))))));
+}
+
+// ---------------- boot ----------------
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function abrirTab3() { if (Live.cfg.on) await Live.cargarLeads(); renderTab3(); }
+function render() {
+  renderTop();
+  for (const k of ["tab1", "tab2", "tab3"]) $("#" + k).hidden = S.tab !== k;
+  if (S.tab === "tab1") renderTab1(); else if (S.tab === "tab2") renderTab2(); else renderTab3();
+}
+newLead();
+document.addEventListener("DOMContentLoaded", async () => {
+  render();
+  const live = await Live.arrancar().catch(() => false);
+  render();
+  if (!live && /^https?:/.test(location.protocol) && /\/hub\/?$/.test(location.pathname)) renderLivePanel();   // served by the backend: ask for the key
+  // Demo mode opens in a realistic working state: play the scenario once on load.
+  if (!live) setTimeout(() => { if (!S.logs.length) $(".chip.play") && $(".chip.play").click(); }, 600);
+});
+
+// ===== Live API Mode: same Hub, real backend (Flask /api/hub/*). Plain fetch(), no libraries. =====
+// Turns on when (a) the Hub is served by the backend at /hub, or (b) a backend URL + key were saved in ⚙ API.
+// Any failure → falls back to the built-in demo data without breaking the page.
+const Live = (() => {
+  const store = { get: (k) => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } },
+                  set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) { /* storage blocked */ } } };
+  const cfg = { base: store.get("ptd.hub.base"), key: store.get("ptd.hub.key"), on: false, estado: null, leads: [], sender: null, error: "" };
+  const CRM_KEY = { peruptd_native: "native", salesforce: "salesforce", hubspot: "hubspot", pipedrive: "pipedrive", zoho: "zoho" };
+  const COLS = { list_price: "list_price", cash_price: "cash_price", min_down_pct: "min_down_payment_pct", rec_down_pct: "recommended_down_payment_pct",
+                 annual_rate_pct: "annual_rate_pct", max_term_years: "max_term_years" };
+  const hue = (s) => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+
+  async function api(path, opts = {}) {
+    const r = await fetch(cfg.base.replace(/\/$/, "") + path, { ...opts, headers: { "Content-Type": "application/json", "X-Hub-Key": cfg.key, ...(opts.headers || {}) } });
+    if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 160)}`);
+    return r.status === 204 ? null : r.json();
+  }
+
+  const mapMedia = (m) => ({ id: m.id, type: m.media_type, trigger: m.trigger_moment, url: m.file_url, hue: hue(m.id || m.file_url),
+                             caption: { es: m.caption_es || "", en: m.caption_en || m.caption_es || "" } });
+  function mapItem(r, crmKey) {
+    const sp = r.specs_json || {};
+    return { id: r.id, live: true, external: { [crmKey]: r.external_crm_id || String(r.id).slice(0, 8) }, keywords: r.keywords || [],
+      name: { es: r.name_es, en: r.name_en || r.name_es }, category: { es: r.category || "", en: r.category || "" }, status: r.status || "available",
+      specs: { es: sp.es || sp.en || {}, en: sp.en || sp.es || {} }, list_price: +r.list_price, cash_price: +(r.cash_price ?? r.list_price), currency: r.currency,
+      min_down_pct: +r.min_down_payment_pct, rec_down_pct: +r.recommended_down_payment_pct, annual_rate_pct: +r.annual_rate_pct, max_term_years: +r.max_term_years,
+      promo: { es: r.promo_bonus_es || "", en: r.promo_bonus_en || r.promo_bonus_es || "" }, value: { es: r.value_comparison_es || "", en: r.value_comparison_en || r.value_comparison_es || "" },
+      insurance: r.insurance_es ? { es: r.insurance_es, en: r.insurance_en || r.insurance_es } : undefined, media: (r.media || []).map(mapMedia) };
+  }
+
+  async function conectar(base, key) {
+    if (base !== undefined) { cfg.base = base.trim(); cfg.key = key.trim(); }
+    cfg.error = "";
+    try {
+      const est = await api("/api/hub/estado");
+      const crmKey = CRM_KEY[est.crm_type] || "native";
+      const items = (await api("/api/hub/catalogo")).map((r) => mapItem(r, crmKey));
+      const plantilla = INDUSTRIES[est.industry] || INDUSTRIES.realestate;
+      INDUSTRIES.live = { ...plantilla, icon: "🔌", name: { en: est.name, es: est.name }, company: est.name, advisor: est.advisor_name || "",
+        botName: { en: est.bot_name || "Ava", es: est.bot_name || "Ava" }, location: { en: est.address || "", es: est.address || "" }, mapsUrl: "",
+        items: items.length ? items : plantilla.items, seed: [] };
+      cfg.estado = est; cfg.on = true;
+      cfg.sender = "hub:+1999" + String(Math.floor(1e6 + Math.random() * 9e6));
+      store.set("ptd.hub.base", cfg.base); store.set("ptd.hub.key", cfg.key);
+      S.ind = "live"; S.crm = crmKey; S.lang = est.default_language === "en" ? "en" : S.lang; S.logs = [];
+      newLead(); await cargarLeads();
+      return true;
+    } catch (e) {
+      cfg.on = false; cfg.error = String(e.message || e);
+      if (S.ind === "live") { S.ind = "realestate"; newLead(); }
+      return false;
+    }
+  }
+
+  function desconectar() {
+    cfg.on = false; cfg.estado = null; store.set("ptd.hub.base", ""); store.set("ptd.hub.key", "");
+    delete INDUSTRIES.live; S.ind = "realestate"; S.crm = "salesforce"; S.logs = []; newLead();
+  }
+
+  async function chat(texto) {
+    const d = await api("/api/hub/chat", { method: "POST", body: JSON.stringify({ sender_id: cfg.sender, texto, canal_origen: S.channel === "wa" ? "WhatsApp" : "SMS (Twilio)" }) });
+    const n = d.nlu || {};
+    const nlu = { detected_language: n.detected_language || "es", regional_slang_detected: n.regional_slang_detected || [], canonical_meaning: n.clean_text || texto,
+      primary_intent: n.primary_intent || "GENERAL_INFO", secondary_intents: (n.intents || []).filter((i) => i !== n.primary_intent),
+      extracted_entities: Object.fromEntries(Object.entries(n.entities || {}).filter(([, v]) => v !== null && v !== false && !(Array.isArray(v) && !v.length))),
+      _ms: n.ms || 0, source: n.source };
+    const L0 = d.lead || {};
+    Object.assign(lead, { stage: L0.stage || lead.stage, payment_method: L0.pay || lead.payment_method, stated_budget: L0.budget || lead.stated_budget,
+      price_objection_count: L0.obj ?? lead.price_objection_count, preferred_language: L0.lang || nlu.detected_language,
+      interested_catalog_item_id: nlu.extracted_entities.catalog_item_id || lead.interested_catalog_item_id || (IND().items[0] || {}).id });
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const toSlot = (iso) => { const t = new Date(iso); return { off: Math.round((new Date(t).setHours(0, 0, 0, 0) - hoy) / 864e5), time: `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}` }; };
+    if (d.slots && d.slots.length) lead.offered_slots = d.slots.map(toSlot);
+    if (L0.appointment) { lead.appointment = { ...toSlot(L0.appointment), label: new Date(L0.appointment).toLocaleString(S.lang === "es" ? "es-PE" : "en-US", { weekday: "short", hour: "numeric", minute: "2-digit" }) }; lead.offered_slots = null; }
+    const media = (d.media || []).map((m) => ({ ...mapMedia(m), id: m.id || m.file_url }));
+    media.forEach((m) => lead.sent_media_ids.includes(m.id) || lead.sent_media_ids.push(m.id));
+    cargarLeads();
+    return { nlu, result: { text: d.reply || "…", media, trace: (d.traza || []).map((t) => [t[0], String(t[1])]), alerts: d.alertas || [], crm: { stage: lead.stage, budget: 1, payment: 1, objections: 1 } } };
+  }
+
+  const pendientes = {};
+  function guardarCampo(item, clave, valor, lang) {
+    if (!cfg.on || !item.live) return;
+    const col = COLS[clave] || (clave === "promo" ? `promo_bonus_${lang}` : clave === "value" ? `value_comparison_${lang}` : null);
+    if (!col) return;
+    clearTimeout(pendientes[item.id + col]);
+    pendientes[item.id + col] = setTimeout(() => api(`/api/hub/catalogo/${item.id}`, { method: "PATCH", body: JSON.stringify({ [col]: valor }) })
+      .then(() => toast(S.lang === "es" ? "Guardado en el CRM ✓" : "Saved to the CRM ✓")).catch((e) => toast("⚠ " + e.message, true)), 600);
+  }
+
+  async function sincronizar() {
+    const r = await api("/api/hub/catalogo/sincronizar", { method: "POST" });
+    await conectar();
+    return r;
+  }
+
+  async function cargarLeads() {
+    try { cfg.leads = await api("/api/hub/leads"); } catch (e) { cfg.leads = []; }
+    return cfg.leads;
+  }
+
+  async function accion(senderId, nombre) {
+    const r = await api(`/api/hub/leads/${encodeURIComponent(senderId)}/accion`, { method: "POST", body: JSON.stringify({ accion: nombre }) });
+    await cargarLeads();
+    return r;
+  }
+
+  async function arrancar() {
+    if (cfg.base && cfg.key) return conectar();
+    if (/^https?:/.test(location.protocol) && /\/hub\/?$/.test(location.pathname)) {
+      cfg.base = location.origin;               // served by the backend itself: only the key is missing
+      return false;
+    }
+    return false;
+  }
+
+  return { cfg, conectar, desconectar, chat, guardarCampo, sincronizar, cargarLeads, accion, arrancar };
+})();
+
+function toast(texto, malo) {
+  const t = el("div", { class: "toast" + (malo ? " bad" : ""), role: "status" }, texto);
+  document.body.append(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+function renderLivePanel() {
+  const L = S.lang === "es";
+  const base = el("input", { id: "live-base", type: "url", placeholder: "https://agent.example.run.app", value: Live.cfg.base, "aria-label": "Backend URL" });
+  const key = el("input", { id: "live-key", type: "password", placeholder: "HUB_API_KEY", value: Live.cfg.key, "aria-label": "Hub API key" });
+  const estado = el("p", { class: "live-msg" }, Live.cfg.on ? `✅ ${L ? "Conectado a" : "Connected to"} ${Live.cfg.estado.name} · ${Live.cfg.estado.crm_type} · ${Live.cfg.estado.catalog_items} ${L ? "productos" : "products"}`
+    : Live.cfg.error ? `⚠ ${Live.cfg.error}` : (L ? "Sin backend: el Hub usa los datos de demostración." : "No backend: the Hub is using built-in demo data."));
+  const panel = el("div", { class: "live-panel", id: "live-panel", role: "dialog", "aria-label": "Live API" },
+    el("h3", {}, L ? "Modo API en vivo" : "Live API Mode"),
+    el("label", {}, L ? "URL del backend" : "Backend URL", base), el("label", {}, "HUB_API_KEY", key), estado,
+    el("div", { class: "controls" },
+      el("button", { class: "btn primary small", onclick: async () => { estado.textContent = "…"; const ok = await Live.conectar(base.value, key.value); render(); if (!ok) { renderLivePanel(); } } }, L ? "Conectar" : "Connect"),
+      Live.cfg.on ? el("button", { class: "btn small", onclick: () => { Live.desconectar(); render(); } }, L ? "Volver a la demo" : "Back to demo") : null,
+      el("button", { class: "btn small", onclick: () => $("#live-panel").remove() }, L ? "Cerrar" : "Close")),
+    el("p", { class: "live-note" }, L ? "Dentro de claude.ai la página no puede llamar a otros dominios: usa el Hub servido por tu backend en /hub."
+      : "Inside claude.ai the page can't call other domains: use the Hub served by your backend at /hub."));
+  const prev = $("#live-panel"); if (prev) prev.remove();
+  document.body.append(panel);
+}
+
+</script>
+</body>
+</html>

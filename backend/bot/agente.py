@@ -8,6 +8,7 @@ import json
 from datetime import datetime, timezone
 
 from bot import catalogo, playbooks, tenant
+from bot.canales import hub_bandeja
 from bot.canales.alertas import alertar_asesor
 from bot.canales.whatsapp import send_wa_media, send_wa_text
 from bot.config import LIMA_TZ
@@ -21,6 +22,14 @@ from bot.nlu_normalizer import SemanticNormalizer
 
 NORMALIZADOR = SemanticNormalizer()
 TIPO_WA = {"image": "image", "pdf": "document", "video": "video"}
+
+
+def _alertar(sender_id, texto):
+    """Alerta al asesor por WhatsApp; en el Hub (cliente simulado) queda en la bandeja para mostrarla en pantalla."""
+    if hub_bandeja.es_simulado(sender_id):
+        hub_bandeja.guardar(sender_id, "alerta", texto)
+    else:
+        alertar_asesor(texto)
 
 
 def _historial(sender_id, n=8):
@@ -49,7 +58,8 @@ def _reservar(res, lead, meta, idioma, t):
     """Crea el evento en el calendario. Devuelve (texto, cambios_meta)."""
     nombre = lead.get("nombre") or "Cliente"
     evento = playbooks.valor(f"agenda.nombre_evento_{idioma}", L(idioma, "visit", "visita"))
-    ok, detalle, ev_id = create_calendar_event(nombre, telefono_visible(lead.get("telefono") or lead.get("sender_id")), res.reservar.isoformat(),
+    simulado = hub_bandeja.es_simulado(lead.get("sender_id"))
+    ok, detalle, ev_id = (True, "simulado", "hub-demo") if simulado else create_calendar_event(nombre, telefono_visible(lead.get("telefono") or lead.get("sender_id")), res.reservar.isoformat(),
                                                notas=f"PeruPTD AI Sales Agent · idioma {idioma}", titulo=f"{evento.capitalize()} - {nombre}",
                                                ubicacion=t.get("address"))
     if not ok:
@@ -57,7 +67,7 @@ def _reservar(res, lead, meta, idioma, t):
         return (L(idioma, "That time was just taken 😅 ", "Ese horario se acaba de ocupar 😅 ") + agenda.texto_opciones(libres, {}, idioma, datetime.now(LIMA_TZ).date()),
                 {"offered_slots": [s.isoformat() for s in libres], "stage": "qualified"})
     etiqueta = agenda.etiqueta(res.reservar, idioma, datetime.now(LIMA_TZ).date())
-    alertar_asesor(f"📅 {evento.capitalize()} agendada: {nombre} ({telefono_visible(lead.get('sender_id'))}) — {etiqueta}")
+    _alertar(lead.get("sender_id"), f"📅 {evento.capitalize()} agendada: {nombre} ({telefono_visible(lead.get('sender_id'))}) — {etiqueta}")
     lugar = t.get("address") or ""
     return (L(idioma, f"Booked! ✅ Your {evento}: {etiqueta}\n📍 {lugar}\nI'll confirm with you 24h before.",
               f"¡Listo! ✅ Agendé tu {evento}: {etiqueta}\n📍 {lugar}\nTe confirmo 24 h antes.").replace("\n📍 \n", "\n"),
@@ -89,7 +99,7 @@ def atender_turno(sender_id, texto, perfil="", canal_origen=None):
         if send_wa_media(sender_id, m.get("file_url"), TIPO_WA.get(m.get("media_type"), "document"), m.get(f"caption_{idioma}") or m.get("caption_es") or ""):
             enviados.append(str(m["id"]))
     for alerta, urgente in res.alertas:
-        alertar_asesor(("🚨 " if urgente else "ℹ️ ") + f"{lead.get('nombre') or telefono_visible(sender_id)}: {alerta}")
+        _alertar(sender_id, ("🚨 " if urgente else "ℹ️ ") + f"{lead.get('nombre') or telefono_visible(sender_id)}: {alerta}")
     ahora = datetime.now(timezone.utc).isoformat()
     item = next((i for i in items if str(i.get("id")) == cambios.get("interested_catalog_item_id")), None)
     cambios.update(sent_media_ids=enviados, ts_ultimo_cliente=ahora, ultimo_texto_cliente=texto[:300],
@@ -103,4 +113,5 @@ def atender_turno(sender_id, texto, perfil="", canal_origen=None):
     safe_upsert_lead(sender_id, "whatsapp", lead.get("nombre") or perfil or None, lead.get("telefono"), cambios, texto)
     _guardar_mensajes(sender_id, texto, texto_final if enviado else "")
     res.texto = texto_final
+    res.nlu = turno
     return res

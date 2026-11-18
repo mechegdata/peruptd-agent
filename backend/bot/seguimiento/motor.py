@@ -3,6 +3,7 @@ import json
 import re
 from datetime import datetime, timedelta, timezone
 
+from bot import tenant
 from bot.canales.alertas import alertar_asesor
 from bot.canales.material import send_requested_wa_media
 from bot.canales.whatsapp import send_wa_text
@@ -14,6 +15,7 @@ from bot.datos.leads import safe_upsert_lead
 from bot.db import supabase
 from bot.nlp.financiamiento import resumen_financiero
 from bot.nlp.patrones import DESPEDIDA_RE, POSTERGAR_RE
+from bot.seguimiento import motor_catalogo
 from bot.seguimiento.envio import _guardar_historial, enviar_seguimiento
 from bot.seguimiento.mensajes import _texto_rescate_24h, _toque_post_visita
 from bot.utils.fechas import DIAS_ES, _ahora, _en_horario_prudente, _proxima_hora_prudente, _ts, a_las, format_fecha_es
@@ -23,6 +25,8 @@ from bot.utils.texto import _primer_nombre, _usd, limpiar_texto
 
 def _procesar_lead_seguimiento(lead):
     """Decide y ejecuta como máximo UNA acción de seguimiento para este cliente. Devuelve una descripción o None."""
+    if tenant.modo_catalogo():
+        return motor_catalogo.procesar(lead)  # cualquier industria, ES/EN, textos del playbook (SAGUE sigue abajo)
     try:
         meta = json.loads(lead.get("interes") or "{}")
     except Exception:

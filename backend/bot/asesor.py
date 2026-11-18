@@ -24,7 +24,7 @@ def procesar_comando_asesor(texto):
         return None
     cmd, num = m.group(1).lower(), normalize_pe_phone(re.sub(r"\s", "", m.group(2)))
     lead = get_lead_by_sender_or_phone(num, num)
-    for prefijo in ("sms:+", "twa:+"):  # clientes que escriben por Twilio (EE. UU./Canadá): su ID lleva el canal
+    for prefijo in ("sms:+", "twa:+", "hub:+"):  # clientes que escriben por Twilio (EE. UU./Canadá): su ID lleva el canal
         lead = lead or get_lead_by_sender_or_phone(prefijo + num)
     if not lead:
         return f"No encontré al cliente +{num} 🤔"

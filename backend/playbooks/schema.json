@@ -3,22 +3,123 @@
   "title": "PeruPTD tenant playbook",
   "description": "Reglas de un cliente: se guarda en tenant_playbooks.playbook (o en playbooks/<archivo>.json como respaldo). Precios y productos NO van aquí: viven en catalog_items.",
   "type": "object",
-  "required": ["tenant", "industria", "idioma_por_defecto", "negocio", "frases_prohibidas", "precio_minimo_negociable", "crm", "agenda"],
+  "required": [
+    "tenant",
+    "industria",
+    "idioma_por_defecto",
+    "negocio",
+    "frases_prohibidas",
+    "precio_minimo_negociable",
+    "crm",
+    "agenda"
+  ],
   "properties": {
-    "tenant": {"type": "string"},
-    "industria": {"enum": ["realestate", "dental", "medspa", "b2b", "otro"]},
-    "idioma_por_defecto": {"enum": ["es", "en"]},
-    "negocio": {"type": "object", "required": ["nombre", "bot", "asesor"],
-      "properties": {"nombre": {"type": "string"}, "bot": {"type": "string"}, "asesor": {"type": "string"}, "direccion": {"type": "string"}}},
-    "frases_prohibidas": {"type": "array", "items": {"type": "string"}, "minItems": 1,
-      "description": "El agente nunca las envía: la oración que las contenga se elimina antes de enviar (bot/engines/guardas.py)."},
-    "precio_minimo_negociable": {"type": "number", "description": "Ningún precio al contado del catálogo puede estar por debajo (lo verifica tests/test_guardrails.py)."},
-    "interruptores": {"type": "object", "additionalProperties": {"type": "boolean"},
-      "description": "Compromisos comerciales que se encienden o apagan sin tocar código."},
-    "crm": {"type": "object", "properties": {
-      "etapas": {"type": "object", "description": "Etapa del bot (new, qualified, booked, visited, negotiation, no_show, won, lost) -> valor en el CRM."},
-      "empresa_por_defecto": {"type": "string"}, "asunto_cita": {"type": "string"}}},
-    "agenda": {"type": "object", "required": ["nombre_evento_es", "nombre_evento_en"],
-      "properties": {"nombre_evento_es": {"type": "string"}, "nombre_evento_en": {"type": "string"}}}
+    "tenant": {
+      "type": "string"
+    },
+    "industria": {
+      "enum": [
+        "realestate",
+        "dental",
+        "medspa",
+        "b2b",
+        "otro"
+      ]
+    },
+    "idioma_por_defecto": {
+      "enum": [
+        "es",
+        "en"
+      ]
+    },
+    "negocio": {
+      "type": "object",
+      "required": [
+        "nombre",
+        "bot",
+        "asesor"
+      ],
+      "properties": {
+        "nombre": {
+          "type": "string"
+        },
+        "bot": {
+          "type": "string"
+        },
+        "asesor": {
+          "type": "string"
+        },
+        "direccion": {
+          "type": "string"
+        }
+      }
+    },
+    "frases_prohibidas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "El agente nunca las envía: la oración que las contenga se elimina antes de enviar (bot/engines/guardas.py)."
+    },
+    "precio_minimo_negociable": {
+      "type": "number",
+      "description": "Ningún precio al contado del catálogo puede estar por debajo (lo verifica tests/test_guardrails.py)."
+    },
+    "interruptores": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "description": "Compromisos comerciales que se encienden o apagan sin tocar código."
+    },
+    "crm": {
+      "type": "object",
+      "properties": {
+        "etapas": {
+          "type": "object",
+          "description": "Etapa del bot (new, qualified, booked, visited, negotiation, no_show, won, lost) -> valor en el CRM."
+        },
+        "empresa_por_defecto": {
+          "type": "string"
+        },
+        "asunto_cita": {
+          "type": "string"
+        }
+      }
+    },
+    "agenda": {
+      "type": "object",
+      "required": [
+        "nombre_evento_es",
+        "nombre_evento_en"
+      ],
+      "properties": {
+        "nombre_evento_es": {
+          "type": "string"
+        },
+        "nombre_evento_en": {
+          "type": "string"
+        }
+      }
+    },
+    "seguimiento": {
+      "type": "object",
+      "description": "Textos del seguimiento por idioma (ver bot/seguimiento/plantillas.py para las claves y variables). Lo que falte usa el texto neutro por defecto.",
+      "properties": {
+        "es": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "en": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
   }
 }

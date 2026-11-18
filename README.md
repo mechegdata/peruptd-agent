@@ -59,17 +59,38 @@ Credenciales: `tenants.crm_credentials_json` guarda **referencias** a variables/
 
 Todas las variables están en `backend/.env.example` (se genera con `python scripts/generar_contexto.py`).
 
+## Seguimiento por tenant (modo `catalogo`)
+
+`bot/seguimiento/motor_catalogo.py` + `plantillas.py`: recordatorio, pregunta al asesor (75 min), protocolo de 14 días
+(`post_45m`, `post_48h_contado` / `post_48h_financiado`, `post_dia5`, `post_dia10` + alerta al asesor, `post_dia14`),
+no asistió y rescate de 24 h (`rescate_horarios`, `rescate_objecion`, `rescate_presupuesto`, `rescate_general`).
+Textos en `playbook.seguimiento.{es,en}` con variables `{coma} {producto} {bono} {valor} {horarios} {cuota}…`; lo que
+falte usa un texto neutro por defecto. Cada toque se apaga con `interruptores.seguimiento_<clave> = false`. Los adjuntos
+salen del catálogo (`POST_VISIT_45M`, `OPTION_RENDER`, `RESCUE_24H`…), sin repetir. SAGUE (`sague_legacy`) no cambia.
+
+## AI Sales Hub: modo API en vivo
+
+- Sin backend (archivo suelto o el artifact de claude.ai) → datos de demostración, como siempre.
+- Servido por el backend en `GET /hub` (mismo dominio) → pide la `HUB_API_KEY` una vez y se conecta.
+- En otro dominio → botón **⚙** del Hub (URL + clave) y ese dominio en `HUB_CORS_ORIGINS`.
+- Lee y escribe: catálogo (`PATCH` precios/bono/argumento), `POST /api/hub/catalogo/sincronizar`, Kanban (`/api/hub/leads`),
+  acciones vino / no vino / pausa / vendido, y chat con el agente real usando un cliente simulado `hub:+1999…`
+  (no sale nada por WhatsApp/SMS ni se crea la cita en el calendario real).
+- Dentro de claude.ai la página no puede llamar a otros dominios (política del sitio): ahí siempre funciona en modo demo.
+- `python hub/build.py` genera `hub/dist/index.html` y `backend/bot/static/hub.html`.
+
 ## Pruebas
 
-`cd backend && python -m pytest -q` → 128 pruebas (79 originales de SAGUE + NLU, motores, colas, adaptadores, Twilio,
+`cd backend && python -m pytest -q` → 145 pruebas (79 originales de SAGUE + NLU, motores, colas, adaptadores, Twilio,
 turno completo del agente y guardas por playbook).
 
 ## Pendiente (siguiente fase)
 
 - **Portal web real (Next.js + Supabase)**: hoy el Hub es una demo autocontenida (datos en el navegador). Para construir
   la versión conectada a Supabase hace falta activar la instalación de paquetes (npm) en la configuración de red.
-- **Textos del protocolo de 14 días y del rescate por tenant/idioma**: siguen siendo los de SAGUE (`bot/seguimiento/mensajes.py`).
-  Para tenants en modo `catalogo` hay que pasarlos al playbook antes de activar `SEGUIMIENTO_ACTIVO`.
+- **Plantillas de WhatsApp aprobadas por Meta** para los toques fuera de la ventana de 24 h en modo `catalogo`: hoy pasan al
+  asesor para envío manual (el SMS no tiene ventana y se envía directo).
+- **Login del portal**: la API del Hub usa una sola clave (`HUB_API_KEY`); para clientes con varios usuarios falta Supabase Auth.
 - **Pruebas en vivo de cada CRM**: los adaptadores están probados con HTTP simulado; falta probarlos contra una cuenta real de cada CRM.
 - **Salesforce multi-org**: el adaptador usa las credenciales `SF_*` del despliegue (una org por servicio).
 - **Plantillas de WhatsApp vía Twilio** fuera de la ventana de 24 h (Content API): hoy se avisa al asesor para envío manual.

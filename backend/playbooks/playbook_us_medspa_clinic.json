@@ -2,12 +2,62 @@
   "tenant": "demo-us-medspa",
   "industria": "dental",
   "idioma_por_defecto": "en",
-  "negocio": {"nombre": "BrightSmile Dental Studio", "bot": "Mia", "asesor": "Dr. Laura Kim", "direccion": "820 Brickell Ave, Suite 400, Miami, FL"},
-  "frases_prohibidas": ["guaranteed results", "painless", "100% success", "cure", "no risk", "diagnose", "you need surgery", "insurance will cover it"],
+  "negocio": {
+    "nombre": "BrightSmile Dental Studio",
+    "bot": "Mia",
+    "asesor": "Dr. Laura Kim",
+    "direccion": "820 Brickell Ave, Suite 400, Miami, FL"
+  },
+  "frases_prohibidas": [
+    "guaranteed results",
+    "painless",
+    "100% success",
+    "cure",
+    "no risk",
+    "diagnose",
+    "you need surgery",
+    "insurance will cover it"
+  ],
   "precio_minimo_negociable": 15500,
-  "interruptores": {"enable_free_ct_scan": true, "enable_carecredit": true},
-  "crm": {"etapas": {"new": "New Inquiry", "qualified": "Qualified", "booked": "Consult Booked", "visited": "Consult Completed",
-                     "negotiation": "Treatment Plan Sent", "no_show": "No-Show", "won": "Treatment Accepted", "lost": "Not Proceeding"},
-          "empresa_por_defecto": "Patient", "asunto_cita": "Consultation — {nombre}"},
-  "agenda": {"nombre_evento_es": "evaluación", "nombre_evento_en": "consultation"}
+  "interruptores": {
+    "enable_free_ct_scan": true,
+    "enable_carecredit": true,
+    "seguimiento_post_dia5": true,
+    "seguimiento_post_dia14": true
+  },
+  "crm": {
+    "etapas": {
+      "new": "New Inquiry",
+      "qualified": "Qualified",
+      "booked": "Consult Booked",
+      "visited": "Consult Completed",
+      "negotiation": "Treatment Plan Sent",
+      "no_show": "No-Show",
+      "won": "Treatment Accepted",
+      "lost": "Not Proceeding"
+    },
+    "empresa_por_defecto": "Patient",
+    "asunto_cita": "Consultation — {nombre}"
+  },
+  "agenda": {
+    "nombre_evento_es": "evaluación",
+    "nombre_evento_en": "consultation"
+  },
+  "seguimiento": {
+    "en": {
+      "recordatorio": "Hi{coma}! 😊 Reminder: your consultation at {empresa} is *{cuando} {fecha}*.\n📍 {direccion} {mapa}\nPlease bring a photo ID and your insurance card. Reply C to confirm or R to reschedule.",
+      "post_45m": "Thank you for coming in today{coma}! 🦷 Here's your treatment summary. If anything feels unclear, text me — Dr. Kim's team is happy to help.",
+      "post_48h_contado": "Hi{coma}! 😊 Ready to schedule your procedure date? Paying in full keeps the cash price and includes your free 3D scan.",
+      "post_48h_financiado": "Hi{coma}! 😊 Did you get a chance to review the payment options? About {cuota} with {presupuesto} down. Our insurance coordinator can check your PPO benefits for free.",
+      "post_dia5": "Hi{coma}! 😊 Any questions about recovery or the procedure day? We can set a quick follow-up call:\n{horarios}",
+      "post_dia10": "Hi{coma}! 😊 Just a heads-up: {bono}. Want to lock in your procedure date?",
+      "post_dia14": "Hi{coma}, should I pause your treatment plan for now? We'll keep your records on file whenever you're ready.",
+      "no_asistio": "Hi{coma}! 😊 We missed you today — hope everything's okay. Want to pick another time?\n{horarios}"
+    },
+    "es": {
+      "recordatorio": "¡Hola{coma}! 😊 Te recuerdo tu evaluación en {empresa} *{cuando} {fecha}*.\n📍 {direccion} {mapa}\nTrae tu documento y tu tarjeta de seguro.",
+      "post_45m": "¡Gracias por venir hoy{coma}! 🦷 Te dejo el resumen de tu tratamiento. Cualquier duda, escríbeme.",
+      "post_48h_financiado": "¡Hola{coma}! 😊 ¿Revisaste las opciones de pago? Aprox. {cuota} con {presupuesto} de inicial. Nuestra coordinadora de seguros revisa tus beneficios PPO sin costo."
+    }
+  }
 }

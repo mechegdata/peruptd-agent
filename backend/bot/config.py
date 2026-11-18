@@ -230,3 +230,7 @@ NLU_PRESUPUESTO_SEG = float(os.environ.get("NLU_PRESUPUESTO_SEG", "2.0"))     # 
 
 # --- CRM del cliente (bot/crm.py + bot/crm_adapters). Con crm_type 'peruptd_native' no hace falta: el CRM es Supabase ---
 CRM_SYNC_ACTIVO = os.environ.get("CRM_SYNC_ACTIVO", os.environ.get("SALESFORCE_ACTIVO", "false")).lower() == "true"
+
+# --- AI Sales Hub en modo API en vivo (bot/rutas/hub_api.py). Sin HUB_API_KEY la API del Hub queda apagada ---
+HUB_API_KEY = os.environ.get("HUB_API_KEY", "")
+HUB_CORS_ORIGINS = [o.strip() for o in os.environ.get("HUB_CORS_ORIGINS", "").split(",") if o.strip()]  # si el Hub se sirve en otro dominio

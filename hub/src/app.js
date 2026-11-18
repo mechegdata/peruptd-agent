@@ -61,20 +61,23 @@ function newLead() {
 
 // ---------------- top bar ----------------
 function renderTop() {
-  const seg = (key, opts) => el("div", { class: "seg", role: "group" }, opts.map(([v, label]) => el("button", { "aria-pressed": S[key] === v ? "true" : "false", onclick: () => { if (S[key] === v) return; S[key] = v; if (key === "ind") newLead(); if (key === "lang" && lead.stage === "new" && !lead.greeted) lead.preferred_language = v; render(); } }, label)));
+  const fijo = (key) => Live.cfg.on && (key === "ind" || key === "crm");
+  const seg = (key, opts) => el("div", { class: "seg", role: "group" }, opts.map(([v, label]) => el("button", { "aria-pressed": S[key] === v ? "true" : "false", disabled: fijo(key) && S[key] !== v, onclick: () => { if (S[key] === v) return; S[key] = v; if (key === "ind") newLead(); if (key === "lang" && lead.stage === "new" && !lead.greeted) lead.preferred_language = v; render(); } }, label)));
   $("#top").replaceChildren(
     el("div", { class: "brand" }, el("div", { class: "mark" }, "PTD"), el("div", {}, el("h1", {}, "PeruPTD AI Sales Hub"), el("small", {}, t("tagline")))),
     el("div", { class: "switch" }, el("span", {}, t("lang")), seg("lang", [["en", "🇺🇸 English"], ["es", "🇪🇸 Español"]])),
-    el("div", { class: "switch" }, el("span", {}, t("industry")), seg("ind", Object.entries(INDUSTRIES).map(([k, v]) => [k, `${v.icon} ${v.name[S.lang]}`]))),
-    el("div", { class: "switch" }, el("span", {}, t("crm")), seg("crm", Object.entries(CRMS).map(([k, v]) => [k, v.short])))
+    el("div", { class: "switch" }, el("span", {}, t("industry")), seg("ind", Object.entries(INDUSTRIES).filter(([k]) => k !== "live" || Live.cfg.on).map(([k, v]) => [k, `${v.icon} ${v.name[S.lang]}`]))),
+    el("div", { class: "switch" }, el("span", {}, t("crm")), seg("crm", Object.entries(CRMS).map(([k, v]) => [k, v.short]))),
+    el("button", { class: "mode " + (Live.cfg.on ? "on" : ""), onclick: renderLivePanel, title: "Live API Mode" }, Live.cfg.on ? "● LIVE API" : "○ DEMO DATA", " ⚙")
   );
   const n = lead.stage !== "new" ? 1 : 0;
-  $("#tabs").replaceChildren(...["tab1", "tab2", "tab3"].map((k) => el("button", { role: "tab", "aria-selected": S.tab === k ? "true" : "false", onclick: () => { S.tab = k; render(); } }, t(k), k === "tab3" && n ? el("span", { class: "count" }, "LIVE") : null)));
+  $("#tabs").replaceChildren(...["tab1", "tab2", "tab3"].map((k) => el("button", { role: "tab", "aria-selected": S.tab === k ? "true" : "false", onclick: () => { S.tab = k; render(); if (k === "tab3" && Live.cfg.on) abrirTab3(); } }, t(k), k === "tab3" && n ? el("span", { class: "count" }, "LIVE") : null)));
 }
 
 // ---------------- tab 1 ----------------
 function thumb(m, lang) {
-  return el("div", { class: "thumb" }, el("div", { class: "art", style: `background: linear-gradient(135deg, hsl(${m.hue} 55% 46%), hsl(${(m.hue + 40) % 360} 60% 32%))` }, ICON[m.type]),
+  const fondo = m.url && m.type === "image" ? `background: center / cover url("${String(m.url).replace(/"/g, "")}")` : `background: linear-gradient(135deg, hsl(${m.hue} 55% 46%), hsl(${(m.hue + 40) % 360} 60% 32%))`;
+  return el("div", { class: "thumb" }, el("div", { class: "art", style: fondo }, m.url && m.type === "image" ? "" : ICON[m.type]),
     el("div", { class: "cap" }, m.caption[lang], el("span", { class: "trg" }, m.trigger)));
 }
 
@@ -112,21 +115,25 @@ async function flush() {
   if (!batch.length) return;
   const strip = $("#strip-text"); if (strip) strip.textContent = t("debounceDone")(batch.length);
   const ind = IND();
-  const nlu = NLU.normalize(batch.join("\n"), { items: ind.items, previousLanguage: lead.preferred_language });
+  let live = null;
+  if (Live.cfg.on) {
+    try { live = await Live.chat(batch.join("\n")); } catch (e) { toast((S.lang === "es" ? "Backend no respondió, uso la demo: " : "Backend didn't answer, using demo: ") + e.message, true); }
+  }
+  const nlu = live ? live.nlu : NLU.normalize(batch.join("\n"), { items: ind.items, previousLanguage: lead.preferred_language });
   S.lastNLU = { batch, nlu, result: null };
   lead.preferred_language = nlu.detected_language;
   renderXray(1);
   const typing = $("#msgs").appendChild(el("div", { class: "row bot" }, el("div", { class: "bubble typing" }, el("i"), el("i"), el("i"))));
   $("#msgs").scrollTop = $("#msgs").scrollHeight;
   await wait(650); renderXray(2);
-  const result = Engines.run(nlu, { lead, industry: ind, lang: nlu.detected_language, crmKey: S.crm });
+  const result = live ? live.result : Engines.run(nlu, { lead, industry: ind, lang: nlu.detected_language, crmKey: S.crm });
   S.lastNLU.result = result;
   await wait(650); renderXray(3);
   await wait(500);
   typing.remove();
   addMsg("bot", result.text, { media: result.media, lang: nlu.detected_language });
   renderXray(4);
-  result.alerts.forEach((a) => S.alerts.unshift({ text: a, hot: /URGENT|URGENTE|call|llamar|New|Nueva/.test(a), time: now() }));
+  result.alerts.forEach((a) => S.alerts.unshift({ text: a, hot: /URGENT|URGENTE|call|llamar|New|Nueva|🚨|📅/.test(a), time: now() }));
   renderSide(result.crm);
   renderComposer();
 }
@@ -158,7 +165,7 @@ function fieldRows(crmDelta) {
     ["stage", t("stages")[lead.stage] || lead.stage], ["channel", lead.channel_origin], ["language", (lead.preferred_language || "").toUpperCase()],
     ["item", item ? item.name[L] : "—"], ["payment", lead.payment_method ? (lead.payment_method === "CASH" ? (L === "es" ? "Contado" : "Cash") : (L === "es" ? "Financiamiento" : "Financing")) : "—"],
     ["budget", lead.stated_budget ? Engines.money(lead.stated_budget, L) : "—"], ["objections", `${lead.price_objection_count || 0} / 3`],
-    ["media", lead.sent_media_ids.length ? lead.sent_media_ids.join(", ") : "—"], ["appointment", lead.appointment ? lead.appointment.label : "—"]
+    ["media", !lead.sent_media_ids.length ? "—" : (Live.cfg.on || lead.sent_media_ids.length > 3) ? `${lead.sent_media_ids.length} ${L === "es" ? "archivos" : "files"}` : lead.sent_media_ids.join(", ")], ["appointment", lead.appointment ? lead.appointment.label : "—"]
   ];
   const changed = new Set(Object.keys(crmDelta || {}));
   if (crmDelta && crmDelta.item) changed.add("item");
@@ -253,7 +260,7 @@ function renderTab1() {
 // ---------------- tab 2 ----------------
 function renderTab2() {
   const ind = IND(), c = CRMS[S.crm], L = S.lang;
-  const num = (item, key, label, step = "1") => el("label", {}, label, el("input", { type: "number", step, value: item[key], id: `${item.id}-${key}`, oninput: (e) => { item[key] = parseFloat(e.target.value) || 0; } }));
+  const num = (item, key, label, step = "1") => el("label", {}, label, el("input", { type: "number", step, value: item[key], id: `${item.id}-${key}`, oninput: (e) => { item[key] = parseFloat(e.target.value) || 0; Live.guardarCampo(item, key, item[key], L); } }));
   const cards = ind.items.map((item) => {
     const trig = el("select", { id: `${item.id}-trig`, "aria-label": t("trigger") }, TRIGGERS.map((x) => el("option", { value: x }, x)));
     const typ = el("select", { id: `${item.id}-typ`, "aria-label": "type" }, Object.keys(ICON).map((x) => el("option", { value: x }, t("mediaTypes")[x])));
@@ -263,8 +270,8 @@ function renderTab2() {
       el("div", { class: "specs" }, Object.entries(item.specs[L]).map(([k, v]) => el("span", {}, `${k}: ${v}`))),
       el("div", { class: "grid6" }, num(item, "list_price", t("list")), num(item, "cash_price", t("cash")), num(item, "min_down_pct", t("mindown")),
         num(item, "rec_down_pct", t("recdown")), num(item, "annual_rate_pct", t("rate"), "0.1"), num(item, "max_term_years", t("term"))),
-      el("label", { class: "wide" }, t("promo"), el("textarea", { id: `${item.id}-promo`, oninput: (e) => { item.promo[L] = e.target.value; } }, item.promo[L])),
-      el("label", { class: "wide" }, t("value"), el("textarea", { id: `${item.id}-value`, oninput: (e) => { item.value[L] = e.target.value; } }, item.value[L])),
+      el("label", { class: "wide" }, t("promo"), el("textarea", { id: `${item.id}-promo`, oninput: (e) => { item.promo[L] = e.target.value; Live.guardarCampo(item, "promo", e.target.value, L); } }, item.promo[L])),
+      el("label", { class: "wide" }, t("value"), el("textarea", { id: `${item.id}-value`, oninput: (e) => { item.value[L] = e.target.value; Live.guardarCampo(item, "value", e.target.value, L); } }, item.value[L])),
       el("div", { class: "mediagrid" }, item.media.map((m) => thumb(m, L))),
       el("div", { class: "addmedia" }, t("addMedia") + ":", typ, trig, el("button", { class: "btn small", onclick: () => {
         const n = item.media.length + 1;
@@ -273,20 +280,34 @@ function renderTab2() {
       } }, t("addBtn"))));
   });
   $("#tab2").replaceChildren(
-    el("div", { class: "syncbar" }, el("span", { class: "dot" }), el("b", {}, t("catalogTitle")), el("code", {}, c.catalogSrc), el("span", { style: "color:var(--muted)" }, `${t("synced")} ${now()} · ${t("editHint")}`)),
+    el("div", { class: "syncbar" }, el("span", { class: "dot" }), el("b", {}, t("catalogTitle")), el("code", {}, c.catalogSrc), el("span", { style: "color:var(--muted)" }, `${t("synced")} ${now()} · ${t("editHint")}`),
+      Live.cfg.on ? el("button", { class: "btn small", style: "margin-left:auto", onclick: async (e) => { e.target.disabled = true; try { const r = await Live.sincronizar(); toast(`⟳ ${r.items} items · ${r.media} media`); } catch (err) { toast("⚠ " + err.message, true); } render(); } }, S.lang === "es" ? `⟳ Sincronizar desde ${c.short}` : `⟳ Sync from ${c.short}`) : null),
     el("div", { class: "cards" }, cards));
 }
 
 // ---------------- tab 3 ----------------
 function boardLeads() {
+  if (Live.cfg.on) {
+    return Live.cfg.leads.filter((l) => l.stage !== "lost").map((l) => ({ id: l.sender_id, name: l.nombre, stage: l.stage === "no_show" ? "booked" : l.stage, lang: l.lang,
+      channel: l.channel, pay: l.pay, budget: l.budget, obj: l.obj, day: l.day || 0, noshow: l.noshow, followup: l.followup, live: l.sender_id === Live.cfg.sender, remote: true }));
+  }
   const ind = IND();
   const seeded = ind.seed.map((s, i) => ({ id: `s${i}`, ...s }));
   const live = { id: "live", name: t("you"), stage: lead.stage === "lost" ? "new" : lead.stage, lang: lead.preferred_language, channel: lead.channel_origin, pay: lead.payment_method, budget: lead.stated_budget, obj: lead.price_objection_count, day: lead.day || 0, live: true };
   return [live, ...seeded];
 }
 
+const LIVE_KEYS = { t45: "post_45m", d2: "post_48h", d5: "post_dia5", d10: "post_dia10", d14: "post_dia14" };
 function protocolState(l, key) {
   const order = ["t24", "t75", "t45", "d2", "d5", "d10", "d14"];
+  if (l.remote) {
+    if (l.noshow && order.indexOf(key) >= 2) return "skip";
+    const visto = ["visited", "negotiation", "won"].includes(l.stage);
+    if (key === "t24" || key === "t75") return visto ? "done" : (l.stage === "booked" && key === "t24" ? "next" : "");
+    if ((l.followup || []).includes(LIVE_KEYS[key])) return "done";
+    const primera = order.slice(2).find((k) => !(l.followup || []).includes(LIVE_KEYS[k]));
+    return visto && l.stage !== "won" && primera === key ? "next" : "";
+  }
   const done = { new: 0, qualified: 0, booked: 0, visited: 3, negotiation: 6, won: 7 }[l.stage] || 0;
   const dayDone = l.stage === "visited" ? Math.min(7, 3 + ((l.day >= 2) + (l.day >= 5))) : done;
   const i = order.indexOf(key);
@@ -307,14 +328,19 @@ function renderTab3() {
         el("div", { class: "meta" }, el("span", { class: "strikes", title: "price objections" }, [1, 2, 3].map((n) => el("i", { class: n <= (l.obj || 0) ? "on" : "" }))), l.day ? el("span", {}, `${t("day")} ${l.day}`) : null))));
   });
   const sel = leads.find((l) => l.id === S.selected) || leads[0];
-  const act = (fn) => () => { fn(sel); renderTab3(); };
+  if (!sel) {
+    $("#tab3").replaceChildren(el("div", { class: "board" }, cols), el("p", { class: "muted" }, S.lang === "es" ? "Aún no hay leads en el CRM: escribe en la consola en vivo." : "No leads in the CRM yet: send a message in the live console."));
+    return;
+  }
+  const remoto = (nombre) => async () => { try { const r = await Live.accion(sel.id, nombre); toast(r.resultado || "✓"); } catch (e) { toast("⚠ " + e.message, true); } renderTab3(); };
+  const act = (fn, nombre) => sel.remote ? remoto(nombre) : () => { fn(sel); renderTab3(); };
   const setStage = (l, st) => { if (l.live) lead.stage = st; else ind.seed[parseInt(l.id.slice(1), 10)].stage = st; };
   const timeline = el("ol", { class: "timeline" }, PROTOCOL.map((p) => { const s = protocolState(sel, p.key); return el("li", { class: s }, el("span", { class: "ic" }, s === "done" ? "✓" : s === "next" ? "•" : ""), el("span", { class: "when" }, p.when[S.lang]), el("span", {}, p.what[S.lang]), s === "next" ? el("span", { class: "pill warn" }, S.lang === "es" ? "siguiente" : "next") : el("span")); }));
   const controls = el("div", { class: "controls" },
-    el("button", { class: "btn small", onclick: act((l) => { setStage(l, "visited"); if (l.live) lead.day = 0; }) }, "✅ " + t("attended")),
-    el("button", { class: "btn small", onclick: act((l) => { if (l.live) { lead.noshow = true; } else ind.seed[parseInt(l.id.slice(1), 10)].noshow = true; S.alerts.unshift({ text: S.lang === "es" ? "No vino → mensaje de reprogramación enviado" : "No-show → reschedule message sent", hot: true, time: now() }); }) }, "❌ " + t("noshow")),
-    el("button", { class: "btn small", onclick: act(() => { repReply(); }) }, "⏸ " + t("pause")),
-    el("button", { class: "btn small", onclick: act((l) => setStage(l, "won")) }, "🏆 " + t("sold")));
+    el("button", { class: "btn small", onclick: act((l) => { setStage(l, "visited"); if (l.live) lead.day = 0; }, "vino") }, "✅ " + t("attended")),
+    el("button", { class: "btn small", onclick: act((l) => { if (l.live) { lead.noshow = true; } else ind.seed[parseInt(l.id.slice(1), 10)].noshow = true; S.alerts.unshift({ text: S.lang === "es" ? "No vino → mensaje de reprogramación enviado" : "No-show → reschedule message sent", hot: true, time: now() }); }, "no vino") }, "❌ " + t("noshow")),
+    el("button", { class: "btn small", onclick: act(() => { repReply(); }, "pausa") }, "⏸ " + t("pause")),
+    el("button", { class: "btn small", onclick: act((l) => setStage(l, "won"), "vendido") }, "🏆 " + t("sold")));
   $("#tab3").replaceChildren(el("div", { class: "board" }, cols),
     el("div", { class: "detail" },
       el("section", { class: "panel" }, el("h2", {}, t("followTitle"), el("span", { class: "tag" }, sel.name)), timeline, controls),
@@ -324,14 +350,18 @@ function renderTab3() {
 
 // ---------------- boot ----------------
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function abrirTab3() { if (Live.cfg.on) await Live.cargarLeads(); renderTab3(); }
 function render() {
   renderTop();
   for (const k of ["tab1", "tab2", "tab3"]) $("#" + k).hidden = S.tab !== k;
   if (S.tab === "tab1") renderTab1(); else if (S.tab === "tab2") renderTab2(); else renderTab3();
 }
 newLead();
-document.addEventListener("DOMContentLoaded", () => {
-  const prev = S.logs; render();
-  // Leave the console in a realistic working state: play the scenario once on load.
-  setTimeout(() => { if (!prev.length && !S.logs.length) $(".chip.play") && $(".chip.play").click(); }, 600);
+document.addEventListener("DOMContentLoaded", async () => {
+  render();
+  const live = await Live.arrancar().catch(() => false);
+  render();
+  if (!live && /^https?:/.test(location.protocol) && /\/hub\/?$/.test(location.pathname)) renderLivePanel();   // served by the backend: ask for the key
+  // Demo mode opens in a realistic working state: play the scenario once on load.
+  if (!live) setTimeout(() => { if (!S.logs.length) $(".chip.play") && $(".chip.play").click(); }, 600);
 });

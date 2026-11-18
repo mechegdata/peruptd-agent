@@ -3,7 +3,7 @@ import time
 
 import requests
 
-from bot.canales import twilio_adapter
+from bot.canales import hub_bandeja, twilio_adapter
 from bot.config import GRAPH_URL, WA_IMG_MAX_BYTES, WA_PHONE_ID, WA_TOKEN
 from bot.estado import MEDIA_CACHE, MEDIA_ERROR
 from bot.utils.telefono import destino_wa, normalize_pe_phone
@@ -12,6 +12,8 @@ from bot.utils.telefono import destino_wa, normalize_pe_phone
 def send_wa_text(to_phone, text):
     if not to_phone or not text:
         return False
+    if hub_bandeja.es_simulado(to_phone):
+        return hub_bandeja.guardar(to_phone, "texto", text)  # cliente simulado del AI Sales Hub: no sale a ningún canal
     if twilio_adapter.es_destino_twilio(to_phone):
         return twilio_adapter.enviar_texto(to_phone, text)  # cliente de EE. UU./Canadá por SMS o WhatsApp de Twilio
     clean_phone = normalize_pe_phone(to_phone) or str(to_phone).replace("+", "")
@@ -101,6 +103,8 @@ def subir_media_wa(media_url, tipo, mime):
 def send_wa_media(to_phone, media_url, media_type="document", caption=""):
     if not to_phone or not media_url or "link-a-tu-" in media_url:
         return False
+    if hub_bandeja.es_simulado(to_phone):
+        return hub_bandeja.guardar(to_phone, "media", media_url, {"leyenda": caption, "tipo_media": media_type})
     if twilio_adapter.es_destino_twilio(to_phone):
         return twilio_adapter.enviar_media(to_phone, media_url, caption)
     clean_phone = normalize_pe_phone(to_phone) or str(to_phone).replace("+", "")

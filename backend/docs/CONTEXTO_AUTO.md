@@ -3,25 +3,26 @@
 > ⚠️ Archivo GENERADO por `scripts/generar_contexto.py`. No lo edites a mano: se sobrescribe en cada commit.
 > Para contexto humano (decisiones, negocio, arquitectura) ver `CLAUDE.md` y `docs/`.
 
-**Módulos:** 84 · **Líneas totales:** 8314 · **Límites:** archivo ≤ 300 líneas, función ≤ 60 líneas
+**Módulos:** 88 · **Líneas totales:** 8801 · **Límites:** archivo ≤ 300 líneas, función ≤ 60 líneas
 
 ## 1. Mapa de módulos
 
 | Módulo | Líneas | Responsabilidad |
 |---|---:|---|
 | `main.py` | 7 | Punto de entrada para Cloud Run (gunicorn main:app). La lógica vive en el paquete bot/. |
-| `bot/agente.py` | 106 | Turno completo del agente para tenants en modo 'catalogo': |
+| `bot/agente.py` | 117 | Turno completo del agente para tenants en modo 'catalogo': |
 | `bot/agrupador.py` | 53 | Junta los mensajes que el cliente manda seguidos ('De un piso noms' / 'Quiero' / 'No me alcanza para más') |
 | `bot/app.py` | 14 | Crea la aplicación Flask y registra todas las rutas (Blueprints). |
 | `bot/asesor.py` | 56 | Comandos del asesor por WhatsApp (vino / no vino / pausa / vendido / estado). |
 | `bot/atencion.py` | 103 | Atiende un mensaje entrante de WhatsApp de punta a punta (nunca deja sin respuesta). |
 | `bot/canales/alertas.py` | 45 | Alertas al asesor humano (OWNER_WA) con respaldo por plantilla. |
+| `bot/canales/hub_bandeja.py` | 24 | Bandeja de prueba del AI Sales Hub: los clientes simulados del Hub usan sender_id 'hub:+1999...'. Lo que el agente |
 | `bot/canales/material.py` | 65 | Envío de fichas, renders y fotos solicitados en una respuesta. |
 | `bot/canales/messenger.py` | 16 | Envío de mensajes privados por Messenger / Instagram. |
 | `bot/canales/twilio_adapter.py` | 90 | Adaptador Twilio (SMS y WhatsApp vía Twilio) para EE. UU. / Canadá. |
-| `bot/canales/whatsapp.py` | 175 | WhatsApp Cloud API: envío de texto, media (con subida y compresión) y plantillas. |
+| `bot/canales/whatsapp.py` | 179 | WhatsApp Cloud API: envío de texto, media (con subida y compresión) y plantillas. |
 | `bot/catalogo/sincronizar.py` | 60 | CRM -> Supabase: copia productos, precios y archivos del CRM del cliente a catalog_items / catalog_media. |
-| `bot/config.py` | 232 | Configuración: todas las variables de entorno y constantes del negocio. |
+| `bot/config.py` | 236 | Configuración: todas las variables de entorno y constantes del negocio. |
 | `bot/conversacion/agenda.py` | 464 ⚠️ | Motor de agenda determinístico (máquina de estados de agendamiento). Corre antes que la IA. |
 | `bot/conversacion/agenda_humana.py` | 283 | Agenda 'humana': entiende restricciones y preferencias ('trabajo hasta las 5', 'fin de semana', 'a eso de las 4.30'). |
 | `bot/conversacion/base.py` | 9 | Helpers compartidos por los motores de respuesta. |
@@ -81,13 +82,16 @@
 | `bot/rutas/catalogo.py` | 15 | POST /catalogo/sincronizar: copia el catálogo del CRM del cliente a Supabase (productos, precios y archivos). |
 | `bot/rutas/cron.py` | 47 | Endpoint protegido que ejecuta los seguimientos (y termina lo que un reinicio dejó a medias). |
 | `bot/rutas/diagnostico.py` | 66 | Endpoint de diagnóstico del envío de media. |
+| `bot/rutas/hub_api.py` | 157 | API del AI Sales Hub en modo en vivo (lo que el Hub lee y escribe cuando tiene un backend configurado). |
 | `bot/rutas/salesforce.py` | 39 | Salesforce -> bot. Un Flow (o Outbound Message) avisa cuando el asesor cambia la cita o escribe al cliente desde |
 | `bot/rutas/salud.py` | 10 | Health check. |
 | `bot/rutas/twilio.py` | 30 | Webhook de Twilio (SMS y WhatsApp vía Twilio): POST /webhook/twilio. |
 | `bot/rutas/webhook.py` | 224 | Webhook de Meta: WhatsApp, Messenger, Instagram, comentarios y Lead Ads. |
 | `bot/seguimiento/envio.py` | 58 | Envío de seguimientos respetando la ventana de 24 h (texto libre / plantilla / manual). |
 | `bot/seguimiento/mensajes.py` | 136 | Textos de rescate 24 h y del protocolo post-visita de 14 días. |
-| `bot/seguimiento/motor.py` | 171 | Motor de seguimiento automático (lo invoca Cloud Scheduler vía /cron). |
+| `bot/seguimiento/motor.py` | 175 | Motor de seguimiento automático (lo invoca Cloud Scheduler vía /cron). |
+| `bot/seguimiento/motor_catalogo.py` | 204 | Seguimiento automático para tenants en modo 'catalogo' (cualquier industria, ES/EN). Misma lógica de tiempos que el |
+| `bot/seguimiento/plantillas.py` | 79 | Plantillas de seguimiento por tenant e idioma (modo 'catalogo'): recordatorio, protocolo post-visita de 14 días |
 | `bot/tenant.py` | 40 | Empresa (tenant) dueña de este despliegue: fila de la tabla tenants (migración 003), con caché de 5 minutos. |
 | `bot/utils/fechas.py` | 67 | Formato de fechas/horas en español y utilidades de zona horaria (Lima). |
 | `bot/utils/firma_meta.py` | 15 | Verificación de la firma X-Hub-Signature-256 que Meta pone en cada aviso del webhook. |
@@ -104,6 +108,15 @@
 | `/reloj` | GET,POST | `cron_seguimiento` | `bot/rutas/cron.py` |
 | `/diagnostico/media` | GET | `diagnostico_media` | `bot/rutas/diagnostico.py` |
 | `/diagnostico/material` | GET | `diagnostico_material` | `bot/rutas/diagnostico.py` |
+| `/api/hub/<path:_resto>` | OPTIONS | `_preflight` | `bot/rutas/hub_api.py` |
+| `/hub` | GET | `hub` | `bot/rutas/hub_api.py` |
+| `/api/hub/estado` | GET | `estado` | `bot/rutas/hub_api.py` |
+| `/api/hub/catalogo` | GET | `leer_catalogo` | `bot/rutas/hub_api.py` |
+| `/api/hub/catalogo/<item_id>` | PATCH | `editar_catalogo` | `bot/rutas/hub_api.py` |
+| `/api/hub/catalogo/sincronizar` | POST | `sincronizar_catalogo` | `bot/rutas/hub_api.py` |
+| `/api/hub/leads` | GET | `leads` | `bot/rutas/hub_api.py` |
+| `/api/hub/leads/<sender_id>/accion` | POST | `accion` | `bot/rutas/hub_api.py` |
+| `/api/hub/chat` | POST | `chat` | `bot/rutas/hub_api.py` |
 | `/webhook/salesforce` | POST | `desde_salesforce` | `bot/rutas/salesforce.py` |
 | `/` | GET | `home` | `bot/rutas/salud.py` |
 | `/webhook/twilio` | POST | `desde_twilio` | `bot/rutas/twilio.py` |
@@ -113,12 +126,13 @@
 ## 3. Funciones por módulo
 
 ### `bot.agente`
-_Depende de:_ `bot`, `bot.canales.alertas`, `bot.canales.whatsapp`, `bot.config`, `bot.crm`, `bot.datos.leads`, `bot.db`, `bot.engines`, `bot.engines.textos`, `bot.integraciones.calendario`, `bot.nlu_normalizer`
+_Depende de:_ `bot`, `bot.canales`, `bot.canales.alertas`, `bot.canales.whatsapp`, `bot.config`, `bot.crm`, `bot.datos.leads`, `bot.db`, `bot.engines`, `bot.engines.textos`, `bot.integraciones.calendario`, `bot.nlu_normalizer`
 
+- `_alertar()` (6 líneas) — Alerta al asesor por WhatsApp; en el Hub (cliente simulado) queda en la bandeja para mostrarla en pantalla.
 - `_historial()` (8 líneas)
 - `_guardar_mensajes()` (10 líneas)
-- `_reservar()` (18 líneas) — Crea el evento en el calendario. Devuelve (texto, cambios_meta).
-- `atender_turno()` (39 líneas) — Responde un lote de mensajes ya agrupado. Devuelve el ResultadoTurno (para pruebas y registros).
+- `_reservar()` (19 líneas) — Crea el evento en el calendario. Devuelve (texto, cambios_meta).
+- `atender_turno()` (40 líneas) — Responde un lote de mensajes ya agrupado. Devuelve el ResultadoTurno (para pruebas y registros).
 
 ### `bot.agrupador`
 _Depende de:_ `bot.config`, `bot.datos`, `bot.estado`, `bot.utils.texto`
@@ -152,6 +166,12 @@ _Depende de:_ `bot.canales.whatsapp`, `bot.config`, `bot.estado`, `bot.utils.tel
 
 - `alertar_asesor()` (34 líneas) — Envía una alerta al asesor (OWNER_WA). Si el mensaje libre falla (por la ventana de 24 h de WhatsApp),
 
+### `bot.canales.hub_bandeja`
+
+- `es_simulado()` (2 líneas)
+- `guardar()` (6 líneas)
+- `vaciar()` (3 líneas)
+
 ### `bot.canales.material`
 _Depende de:_ `bot.canales.alertas`, `bot.canales.whatsapp`, `bot.config`, `bot.conversacion.recursos`, `bot.estado`
 
@@ -180,10 +200,10 @@ _Depende de:_ `bot.config`
 ### `bot.canales.whatsapp`
 _Depende de:_ `bot.canales`, `bot.config`, `bot.estado`, `bot.utils.telefono`
 
-- `send_wa_text()` (24 líneas)
+- `send_wa_text()` (26 líneas)
 - `_tipo_media_por_url()` (9 líneas)
 - `subir_media_wa()` (50 líneas) — Descarga el archivo y lo sube a WhatsApp (devuelve media_id). Así los errores (archivo pesado, URL caída)
-- `send_wa_media()` (35 líneas)
+- `send_wa_media()` (37 líneas)
 - `send_wa_template()` (26 líneas)
 - `extraer_texto_wa()` (10 líneas)
 
@@ -637,6 +657,22 @@ _Depende de:_ `bot.canales.whatsapp`, `bot.config`, `bot.datos.recursos`, `bot.e
 - `diagnostico_media()` (43 líneas) — Prueba paso a paso el envío de la ficha y los renders. Uso en el navegador:
 - `diagnostico_material()` (7 líneas) — Muestra qué fotos, renders, videos y fichas encontró el bot en el bucket. Uso en el navegador:
 
+### `bot.rutas.hub_api`
+_Depende de:_ `bot`, `bot.agente`, `bot.asesor`, `bot.canales`, `bot.catalogo.sincronizar`, `bot.config`, `bot.crm`, `bot.datos.leads`, `bot.db`
+
+- `_cors()` (7 líneas)
+- `_auth()` (7 líneas)
+- `_preflight()` (3 líneas)
+- `hub()` (5 líneas)
+- `estado()` (7 líneas)
+- `leer_catalogo()` (3 líneas)
+- `editar_catalogo()` (9 líneas)
+- `sincronizar_catalogo()` (3 líneas)
+- `_ficha_kanban()` (16 líneas)
+- `leads()` (6 líneas)
+- `accion()` (9 líneas)
+- `chat()` (24 líneas)
+
 ### `bot.rutas.salesforce`
 _Depende de:_ `bot.asesor`, `bot.config`, `bot.handoff`
 
@@ -672,10 +708,26 @@ _Depende de:_ `bot.config`, `bot.conversacion.precio`, `bot.conversacion.presupu
 - `_toque_post_visita()` (37 líneas)
 
 ### `bot.seguimiento.motor`
-_Depende de:_ `bot.canales.alertas`, `bot.canales.material`, `bot.canales.whatsapp`, `bot.config`, `bot.conversacion.recursos`, `bot.conversacion.slots`, `bot.crm`, `bot.datos.leads`, `bot.db`, `bot.nlp.financiamiento`, `bot.nlp.patrones`, `bot.seguimiento.envio`, `bot.seguimiento.mensajes`, `bot.utils.fechas`, `bot.utils.telefono`, `bot.utils.texto`
+_Depende de:_ `bot`, `bot.canales.alertas`, `bot.canales.material`, `bot.canales.whatsapp`, `bot.config`, `bot.conversacion.recursos`, `bot.conversacion.slots`, `bot.crm`, `bot.datos.leads`, `bot.db`, `bot.nlp.financiamiento`, `bot.nlp.patrones`, `bot.seguimiento`, `bot.seguimiento.envio`, `bot.seguimiento.mensajes`, `bot.utils.fechas`, `bot.utils.telefono`, `bot.utils.texto`
 
-- `_procesar_lead_seguimiento()` (119 líneas ⚠️) — Decide y ejecuta como máximo UNA acción de seguimiento para este cliente. Devuelve una descripción o None.
+- `_procesar_lead_seguimiento()` (121 líneas ⚠️) — Decide y ejecuta como máximo UNA acción de seguimiento para este cliente. Devuelve una descripción o None.
 - `ejecutar_seguimientos()` (27 líneas)
+
+### `bot.seguimiento.motor_catalogo`
+_Depende de:_ `bot`, `bot.canales.alertas`, `bot.canales.whatsapp`, `bot.config`, `bot.crm`, `bot.datos.leads`, `bot.engines`, `bot.engines.textos`, `bot.integraciones.calendario`, `bot.nlp.patrones`, `bot.seguimiento`, `bot.seguimiento.envio`, `bot.utils.fechas`, `bot.utils.texto`
+
+- `_horarios()` (6 líneas) — 3 horarios reales libres; quedan guardados como offered_slots para que el cliente responda 1, 2 o 3.
+- `_variables()` (17 líneas)
+- `_enviar_media()` (10 líneas)
+- `_post_visita()` (34 líneas)
+- `_rescate()` (39 líneas)
+- `procesar()` (60 líneas) — Como motor._procesar_lead_seguimiento: como máximo UNA acción por cliente en cada pasada del cron.
+
+### `bot.seguimiento.plantillas`
+_Depende de:_ `bot`
+
+- `activo()` (3 líneas) — Toque encendido? (playbook interruptores.seguimiento_post_dia5 = false lo apaga).
+- `texto()` (5 líneas)
 
 ### `bot.tenant`
 _Depende de:_ `bot`, `bot.config`
@@ -719,9 +771,9 @@ _Depende de:_ `bot.config`
 
 ## 4. Tablas de Supabase usadas
 
-- **`catalog_items`** ← `bot/catalogo/sincronizar.py`
+- **`catalog_items`** ← `bot/catalogo/sincronizar.py`, `bot/rutas/hub_api.py`
 - **`catalog_media`** ← `bot/catalogo/sincronizar.py`
-- **`leads`** ← `bot/crm.py`, `bot/datos/leads.py`, `bot/seguimiento/motor.py`
+- **`leads`** ← `bot/crm.py`, `bot/datos/leads.py`, `bot/rutas/hub_api.py`, `bot/seguimiento/motor.py`
 - **`mensajes`** ← `bot/agente.py`, `bot/atencion.py`, `bot/conversacion/orquestador.py`, `bot/crm.py`, `bot/datos/leads.py`, `bot/handoff.py`, `bot/leadgen.py`, `bot/seguimiento/envio.py`
 - **`processed_webhooks`** ← `bot/datos/idempotencia.py`
 - **`recursos_media`** ← `bot/datos/recursos.py`
@@ -732,7 +784,7 @@ _Depende de:_ `bot.config`
 
 Claves que el código lee o escribe en el diccionario de estado del lead (variables `meta*`):
 
-`_alerta_asesor`, `_con_historial`, `_momento_fotos`, `acompanantes`, `asesor_solicitado`, `asistencia_confirmada`, `aviso_apertura`, `aviso_cambio_cita`, `bienvenida_ts`, `canal_origen`, `cita_agendada`, `crm_asistencia`, `crm_cita_fecha`, `crm_cita_id`, `crm_firma`, `crm_id`, `dia_contexto`, `en_presupuesto`, `estilo_cocina`, `etapa`, `evento_id`, `fecha_cita`, `fin_credito_aprobado`, `fin_inicial`, `fin_modalidad`, `forma_pago`, `fotos_enviadas`, `gancho_m2_n`, `hora_pendiente`, `interested_catalog_item_id`, `material_enviado`, `monto_pendiente`, `movilidad`, `n_cierres`, `no_interesado`, `objecion_precio_n`, `payment_method`, `post_visita`, `preferred_language`, `pregunta_fin_pendiente`, `pregunta_owner_visita`, `pregunta_owner_visita_2`, `presupuesto_tope`, `price_objection_count`, `producto_crm_id`, `producto_nombre`, `rechazos_horario`, `recordatorio_para`, `recordo_horarios`, `rescate_24h_para`, `rescate_contado`, `rescate_no_asistio`, `restriccion_horaria`, `saludo_visita`, `seguimiento_pausado`, `sent_media_ids`, `sf_lead_id`, `slot_propuesto`, `slots_ofrecidos`, `stage`, `stated_budget`, `ts_cita_creada`, `ts_postergo`, `ts_ultimo_bot`, `ts_ultimo_cliente`, `ts_ultimo_manual`, `ts_visita_confirmada`, `ultimo_material`, `ultimo_texto_cliente`, `veces_pregunta_fin`, `vendido`, `ventana_noche_desde`, `videos_enviados`, `visita_estado`, `vive_lejos`, `wsp_iniciado`, `ya_explicado`
+`_alerta_asesor`, `_con_historial`, `_momento_fotos`, `acompanantes`, `asesor_solicitado`, `asistencia_confirmada`, `aviso_apertura`, `aviso_cambio_cita`, `bienvenida_ts`, `canal_origen`, `cita_agendada`, `crm_asistencia`, `crm_cita_fecha`, `crm_cita_id`, `crm_firma`, `crm_id`, `dia_contexto`, `en_presupuesto`, `estilo_cocina`, `etapa`, `evento_id`, `fecha_cita`, `fin_credito_aprobado`, `fin_inicial`, `fin_modalidad`, `forma_pago`, `fotos_enviadas`, `gancho_m2_n`, `hora_pendiente`, `interested_catalog_item_id`, `material_enviado`, `monto_pendiente`, `movilidad`, `n_cierres`, `no_interesado`, `objecion_precio_n`, `offered_slots`, `payment_method`, `post_visita`, `preferred_language`, `pregunta_fin_pendiente`, `pregunta_owner_visita`, `pregunta_owner_visita_2`, `presupuesto_tope`, `price_objection_count`, `producto_crm_id`, `producto_nombre`, `rechazos_horario`, `recordatorio_para`, `recordo_horarios`, `rescate_24h_para`, `rescate_contado`, `rescate_no_asistio`, `restriccion_horaria`, `saludo_visita`, `seguimiento_pausado`, `sent_media_ids`, `sf_lead_id`, `slot_propuesto`, `slots_ofrecidos`, `stage`, `stated_budget`, `ts_cita_creada`, `ts_postergo`, `ts_ultimo_bot`, `ts_ultimo_cliente`, `ts_ultimo_manual`, `ts_visita_confirmada`, `ultimo_material`, `ultimo_texto_cliente`, `veces_pregunta_fin`, `vendido`, `ventana_noche_desde`, `videos_enviados`, `visita_estado`, `vive_lejos`, `wsp_iniciado`, `ya_explicado`
 
 ## 6. Contrato de respuesta de los motores (`parsed`)
 
@@ -778,6 +830,8 @@ Claves del diccionario que devuelven los motores de respuesta / Gemini:
 | `HORA_FIN_VISITAS` | 18 | `bot/config.py` |
 | `HORA_INICIO_NOCHE` | 18 | `bot/config.py` |
 | `HORA_INICIO_VISITAS` | 9 | `bot/config.py` |
+| `HUB_API_KEY` | — | `bot/config.py` |
+| `HUB_CORS_ORIGINS` | — | `bot/config.py` |
 | `IG_ACCOUNT_ID` | — | `bot/config.py` |
 | `LEADAD_ESPERA_SEG` | 90 | `bot/config.py` |
 | `MAPS_URL` | https://maps.app.goo.gl/dQp7Sj5MFXGJxzMq8 | `bot/config.py` |
@@ -868,4 +922,4 @@ Claves del diccionario que devuelven los motores de respuesta / Gemini:
 - Función `bot.nlu.lexico.normalizar()` tiene 64 líneas (> 60).
 - Función `bot.rutas.webhook.webhook()` tiene 174 líneas (> 60).
 - Función `bot.seguimiento.mensajes._texto_rescate_24h()` tiene 63 líneas (> 60).
-- Función `bot.seguimiento.motor._procesar_lead_seguimiento()` tiene 119 líneas (> 60).
+- Función `bot.seguimiento.motor._procesar_lead_seguimiento()` tiene 121 líneas (> 60).

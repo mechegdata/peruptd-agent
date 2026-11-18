@@ -2,12 +2,56 @@
   "tenant": "demo-us-realestate",
   "industria": "realestate",
   "idioma_por_defecto": "en",
-  "negocio": {"nombre": "Maple Ridge Residences", "bot": "Ava", "asesor": "Daniel Brooks", "direccion": "1250 Maple Ridge Dr, Austin, TX"},
-  "frases_prohibidas": ["guaranteed approval", "no credit check", "best investment ever", "prices will double", "act now or lose", "steal of a deal"],
+  "negocio": {
+    "nombre": "Maple Ridge Residences",
+    "bot": "Ava",
+    "asesor": "Daniel Brooks",
+    "direccion": "1250 Maple Ridge Dr, Austin, TX"
+  },
+  "frases_prohibidas": [
+    "guaranteed approval",
+    "no credit check",
+    "best investment ever",
+    "prices will double",
+    "act now or lose",
+    "steal of a deal"
+  ],
   "precio_minimo_negociable": 465000,
-  "interruptores": {"enable_72h_hold": true, "enable_closing_cost_credit": false},
-  "crm": {"etapas": {"new": "Open - Not Contacted", "qualified": "Working - Contacted", "booked": "Working - Contacted",
-                     "visited": "Working - Contacted", "negotiation": "Working - Contacted", "won": "Closed - Converted", "lost": "Closed - Not Converted"},
-          "empresa_por_defecto": "Individual", "asunto_cita": "Showing — Maple Ridge — {nombre}"},
-  "agenda": {"nombre_evento_es": "visita", "nombre_evento_en": "showing"}
+  "interruptores": {
+    "enable_72h_hold": true,
+    "enable_closing_cost_credit": false,
+    "seguimiento_post_dia5": true
+  },
+  "crm": {
+    "etapas": {
+      "new": "Open - Not Contacted",
+      "qualified": "Working - Contacted",
+      "booked": "Working - Contacted",
+      "visited": "Working - Contacted",
+      "negotiation": "Working - Contacted",
+      "won": "Closed - Converted",
+      "lost": "Closed - Not Converted"
+    },
+    "empresa_por_defecto": "Individual",
+    "asunto_cita": "Showing — Maple Ridge — {nombre}"
+  },
+  "agenda": {
+    "nombre_evento_es": "visita",
+    "nombre_evento_en": "showing"
+  },
+  "seguimiento": {
+    "en": {
+      "post_45m": "Thanks for touring Maple Ridge today{coma}! 🏡 Here's the recap of the *{producto}* to go over with your family. Questions about HOA, taxes or schools? Just text me.",
+      "post_48h_contado": "Hi{coma}! 😊 Want me to send the seller disclosures and title commitment so your attorney can review them?",
+      "post_48h_financiado": "Hi{coma}! 😊 Have you talked to your lender yet? With {presupuesto} down your payment would be about {cuota} (est.). {asesor} can connect you with our preferred lender for a free pre-approval.",
+      "post_dia5": "Hi{coma}! 😊 Want a second look before deciding? Bring your measurements — here are open times:\n{horarios}",
+      "post_dia10": "Hi{coma}! 😊 If the *{producto}* feels like home, now's a good time to write an offer: {bono}. Want {asesor} to walk you through it?",
+      "post_dia14": "Hi{coma}, should I pause things on the *{producto}* for now? No pressure — I just want to keep your file tidy."
+    },
+    "es": {
+      "post_45m": "¡Gracias por visitar Maple Ridge hoy{coma}! 🏡 Te dejo el resumen de *{producto}* para revisarlo en familia. ¿Dudas sobre HOA, impuestos o colegios? Escríbeme.",
+      "post_48h_financiado": "¡Hola{coma}! 😊 ¿Ya hablaste con tu banco? Con {presupuesto} de inicial la cuota sería de aprox. {cuota}. {asesor} te conecta con nuestro prestamista aliado para una pre-aprobación gratis.",
+      "post_dia10": "¡Hola{coma}! 😊 Si *{producto}* te hizo sentir en casa, es buen momento para hacer una oferta: {bono}. ¿Te explico cómo?"
+    }
+  }
 }

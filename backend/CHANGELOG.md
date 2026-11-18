@@ -2,6 +2,13 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones: `AAAA.MM.N`.
 
+## PeruPTD Agent 0.2.0 — 2026-11-17
+- Seguimiento multi-industria (modo `catalogo`): `bot/seguimiento/motor_catalogo.py` + `plantillas.py`; textos ES/EN en
+  `playbook.seguimiento`, interruptores `seguimiento_<clave>`, adjuntos del catálogo. SAGUE (`sague_legacy`) sin cambios.
+- API del AI Sales Hub (`bot/rutas/hub_api.py`, `HUB_API_KEY`, `HUB_CORS_ORIGINS`) y `GET /hub`; bandeja simulada `hub:` para chatear
+  con el agente real sin enviar nada por los canales.
+- Hub: modo API en vivo (`hub/src/live.js`) con vuelta automática a los datos de demostración.
+
 ## PeruPTD Agent 0.1.0 — 2026-11-17 (proyecto nuevo basado en SAGUE)
 - Capa 1: `bot/nlu_normalizer.py` (SemanticNormalizer, NormalizedTurn con pydantic) + léxico ES/EN compartido con el AI Sales Hub.
 - Capa 2: `bot/engines/` (catálogo, presupuesto 8/20 % + anualidad, objeciones 1-2-3, agenda con "salgo del trabajo", multimedia máx. 2 sin repetir).
