@@ -1,101 +1,100 @@
 # PeruPTD Autonomous AI Sales Agent & Multi-CRM Hub
 
-Producto multi-industria, bilingüe (ES/EN) y multi-CRM construido sobre el motor probado de SAGUE Constructora.
-**SAGUE en producción no se toca**: este es un proyecto aparte. SAGUE entrará como primer tenant en modo `sague_legacy`.
+Multi-industry, bilingual (ES/EN), and multi-CRM product built on top of the production-proven engine from SAGUE Constructora.
+**SAGUE in production remains untouched**: this is a separate project. SAGUE will be onboarded as the first tenant in `sague_legacy` mode.
 
 ```
 peruptd-agent/
-├── backend/   Python (Flask + Supabase + Gemini + Google Calendar) — copia del motor SAGUE + lo nuevo
-└── hub/       PeruPTD AI Sales Hub (demo web para videos y ventas): src/ → build.py → dist/index.html
+├── backend/   Python (Flask + Supabase + Gemini + Google Calendar) — copy of the SAGUE engine + new modules
+└── hub/       PeruPTD AI Sales Hub + Native CRM web app (vanilla JS, no npm): src/ → build.py → dist/index.html
 ```
 
-## Arquitectura (3 capas)
+## Architecture (3 Layers)
 
 ```
-WhatsApp Cloud API ─┐                                                    ┌─> WhatsApp / SMS (texto + máx. 2 archivos)
+WhatsApp Cloud API ─┐                                                    ┌─> WhatsApp / SMS (text + max. 2 files)
 Twilio SMS / WA ────┼─> dedupe (processed_webhooks) ─> debounce 15 s ───┤
-Messenger / IG ─────┘    (debounce_batches; /cron termina lotes huérfanos)│
+Messenger / IG ─────┘    (debounce_batches; /cron finishes orphan jobs)  │
                                                                          │
- Capa 1  bot/nlu_normalizer.py   SemanticNormalizer → NormalizedTurn (pydantic)
-         léxico ES/EN (bot/nlu/lexicon.json, ~1 ms) + Gemini Flash en JSON estricto (opcional, con presupuesto de tiempo)
- Capa 2  bot/engines/            catálogo · presupuesto (8 % / 20 % / inicial mínima + anualidad) · objeciones 1-2-3
-                                 · agenda (calendario real, respeta "salgo del trabajo a las 6") · multimedia por momento
- Capa 3  bot/engines/guardas.py  frases prohibidas del playbook + anti-repetición ≥ 80 %
-         bot/agente.py           envía, agenda, guarda la ficha viva, alerta al asesor
- CRM     bot/crm.py + bot/crm_adapters/   PeruPTD Native · Salesforce · HubSpot · Pipedrive · Zoho
+ Layer 1  bot/nlu_normalizer.py   SemanticNormalizer → NormalizedTurn (pydantic)
+          ES/EN lexicon (bot/nlu/lexicon.json, ~1 ms) + strict JSON Gemini Flash (optional, time-budgeted)
+ Layer 2  bot/engines/            catalog · budget (8% / 20% / min down payment + annuity) · 1-2-3 objections
+                                  · scheduling (live calendar, respects "leaving work at 6") · stage-based media
+ Layer 3  bot/engines/guardas.py  playbook forbidden phrases + anti-repetition ≥ 80%
+          bot/agente.py           sends, books, updates live lead record, alerts human advisor
+ CRM      bot/crm.py + bot/crm_adapters/   PeruPTD Native · Salesforce · HubSpot · Pipedrive · Zoho
 ```
 
-Se conserva todo lo de SAGUE: 90 s a Lead Ads, pausa de 2 h cuando el asesor escribe (eco), rescate 24 h, comandos
-`vino / no vino / pausa / activar / vendido / estado`, protocolo de 14 días y horario silencioso.
+All SAGUE production features are preserved: 90 s response to Lead Ads, 2 h automatic pause when the advisor replies (echo), 24 h rescue, commands
+`vino / no vino / pausa / activar / vendido / estado`, 14-day follow-up protocol, and quiet hours.
 
-**Modo por tenant** (`tenants.pipeline_mode`): `catalogo` = motor nuevo (NLU + catálogo); `sague_legacy` = motor original.
-Sin tabla `tenants`, el despliegue arranca en `sague_legacy` (variable `PIPELINE_MODE`).
+**Per-tenant mode** (`tenants.pipeline_mode`): `catalogo` = new engine (NLU + catalog); `sague_legacy` = original engine.
+Without a `tenants` table, the deployment starts in `sague_legacy` (`PIPELINE_MODE` environment variable).
 
-## Catálogo dentro del CRM
+## In-CRM Catalog
 
-El agente siempre lee `catalog_items` + `catalog_media` en Supabase (caché 5 min). Cada CRM los alimenta con
-`POST /catalogo/sincronizar` (Cloud Scheduler o webhook del CRM):
+The agent always reads `catalog_items` + `catalog_media` in Supabase (5 min cache). Each CRM feeds them via
+`POST /catalogo/sincronizar` (Cloud Scheduler or CRM webhook):
 
-| CRM | Catálogo | Lead / cita / nota |
+| CRM | Catalog | Lead / Appointment / Note |
 |---|---|---|
-| PeruPTD Native | el portal edita Supabase directo | columnas de `leads` |
-| Salesforce | Product2 · PricebookEntry · ContentVersion (se copian al bucket `catalogo`) | Lead · Event · Task |
+| PeruPTD Native | edited in the web app at `/app` | `leads` columns |
+| Salesforce | Product2 · PricebookEntry · ContentVersion (copied to the `catalogo` bucket) | Lead · Event · Task |
 | HubSpot | crm/v3/objects/products | Contact + Deal · Meeting · Note |
 | Pipedrive | /products | Person + Deal · Activity · Note |
-| Zoho | Products | Leads (upsert por teléfono) · Events · Notes |
+| Zoho | Products | Leads (upsert by phone) · Events · Notes |
 
-Convención de archivos para el cliente: `[PRICE_OBJECTION] Cochera.jpg`, `[SPECS_PDF] Planos.pdf`. Sin etiqueta:
-imagen → FIRST_INFO, PDF → SPECS_PDF, video → VIDEO_TOUR.
-Credenciales: `tenants.crm_credentials_json` guarda **referencias** a variables/secretos (`{"token_env": "HUBSPOT_TOKEN_ACME"}`), nunca la clave.
+File naming convention for clients: `[PRICE_OBJECTION] Cochera.jpg`, `[SPECS_PDF] Planos.pdf`. If untagged:
+image → FIRST_INFO, PDF → SPECS_PDF, video → VIDEO_TOUR.
+Credentials: `tenants.crm_credentials_json` stores **references** to environment variables/secrets (`{"token_env": "HUBSPOT_TOKEN_ACME"}`), never raw keys.
 
-## Activación (orden)
+## Activation (Order)
 
-1. Supabase (proyecto nuevo): correr en orden `backend/docs/migraciones/000_base_peruptd.sql`, `002_omniagent.sql`,
-   `003_tenants_catalogo.sql`, (demos) `004_demo_catalogos.sql` y `005_crm_web.sql`. Crear el bucket público `catalogo`.
-   `SUPABASE_KEY` debe ser la clave *service_role*. Con varios clientes en la misma base: `MULTI_TENANT=true`.
-   Usuarios del CRM web: `python scripts/crear_usuario.py --tenant demo-dental --email ana@clinica.com --rol admin`
-   (pide la contraseña por consola; se guarda solo el hash).
-2. Cloud Run (servicio nuevo, no el de SAGUE): `TENANT_ID`, `PIPELINE_MODE=catalogo`, claves de Meta/Gemini/Calendar de siempre.
-   Si usa Twilio: `--no-cpu-throttling`, `TWILIO_*`, y en Twilio el webhook `https://<servicio>/webhook/twilio`.
-3. CRM externo: `CRM_SYNC_ACTIVO=true` + credenciales; Salesforce usa `SF_*` (Connected App, Client Credentials o JWT).
-4. CRM web: `HUB_SESSION_SECRET` (32+ caracteres, en Secret Manager) y, si la web vive en otro dominio, `HUB_CORS_ORIGINS`.
-5. Cloud Scheduler: `/cron` cada 5-10 min (seguimientos + colas huérfanas) y `/catalogo/sincronizar` cada hora.
+1. Supabase (new project): run, in order, `backend/docs/migraciones/000_base_peruptd.sql`, `002_omniagent.sql`,
+   `003_tenants_catalogo.sql`, (demos) `004_demo_catalogos.sql` and `005_crm_web.sql`. Create the public bucket `catalogo`.
+   `SUPABASE_KEY` must be the *service_role* key. Several clients in one database: `MULTI_TENANT=true`.
+   CRM users: `python scripts/crear_usuario.py --tenant demo-dental --email ana@clinic.com --rol admin`
+   (the password is typed in the console; only its hash is stored).
+2. Cloud Run (new service, separate from SAGUE): `TENANT_ID`, `PIPELINE_MODE=catalogo`, standard Meta/Gemini/Calendar keys.
+   If using Twilio: `--no-cpu-throttling`, `TWILIO_*`, and set the Twilio webhook to `https://<service>/webhook/twilio`.
+3. External CRM: `CRM_SYNC_ACTIVO=true` + credentials; Salesforce uses `SF_*` (Connected App, Client Credentials, or JWT).
+4. Web CRM: `HUB_SESSION_SECRET` (32+ chars, in Secret Manager) and, if the web app lives on another domain, `HUB_CORS_ORIGINS`.
+5. Cloud Scheduler: `/cron` every 5-10 min (follow-ups + orphan queues) and `/catalogo/sincronizar` every hour.
 
-Todas las variables están en `backend/.env.example` (se genera con `python scripts/generar_contexto.py`).
+All environment variables are listed in `backend/.env.example` (generated with `python scripts/generar_contexto.py`).
 
-## Seguimiento por tenant (modo `catalogo`)
+## Per-tenant follow-up (`catalogo` mode)
 
-`bot/seguimiento/motor_catalogo.py` + `plantillas.py`: recordatorio, pregunta al asesor (75 min), protocolo de 14 días
-(`post_45m`, `post_48h_contado` / `post_48h_financiado`, `post_dia5`, `post_dia10` + alerta al asesor, `post_dia14`),
-no asistió y rescate de 24 h (`rescate_horarios`, `rescate_objecion`, `rescate_presupuesto`, `rescate_general`).
-Textos, en orden: `playbook.seguimiento.{es,en}` (editables en /app → Ajustes) → plantilla de la industria del tenant
-(`plantillas_industria.py`: inmobiliaria, salud/clínicas, B2B; ES y EN) → texto neutro. Variables
-`{coma} {producto} {bono} {valor} {horarios} {cuota}…`. Cada toque se apaga con `interruptores.seguimiento_<clave> = false`. Los adjuntos
-salen del catálogo (`POST_VISIT_45M`, `OPTION_RENDER`, `RESCUE_24H`…), sin repetir. SAGUE (`sague_legacy`) no cambia.
+`bot/seguimiento/motor_catalogo.py` + `plantillas.py`: reminder, rep check-in (75 min), 14-day protocol
+(`post_45m`, `post_48h_contado` / `post_48h_financiado`, `post_dia5`, `post_dia10` + rep alert, `post_dia14`),
+no-show and 24 h rescue (`rescate_horarios`, `rescate_objecion`, `rescate_presupuesto`, `rescate_general`).
+Text lookup order: `playbook.seguimiento.{es,en}` (editable in `/app` → Settings) → industry template
+(`plantillas_industria.py`: real estate, health/clinics, B2B; ES and EN) → neutral default. Every touch can be turned off with
+`interruptores.seguimiento_<key> = false`; attachments come from the catalog, never repeated. SAGUE (`sague_legacy`) is unchanged.
 
 ## PeruPTD Native CRM (`/app`)
 
-Una sola página (Flask + Supabase, sin npm). Doble modo:
-- `https://<servicio>/app` → **producción**: login (tabla `hub_users`, contraseña con hash scrypt, cookie HttpOnly firmada,
-  5 intentos / 15 min, cabecera `X-PTD-CSRF` en cada cambio). Cada usuario ve solo los datos de su `tenant_id`.
-- `/app?demo=1`, el archivo suelto o el artifact → **demo** de siempre (▶, X-Ray, switches) para grabar videos.
+One page served by Flask + Supabase (no npm, no Next.js). Two modes:
+- `https://<service>/app` → **production**: login (`hub_users`, scrypt password hashes, signed HttpOnly cookie,
+  5 attempts / 15 min, `X-PTD-CSRF` header on every write). Each user only sees their own `tenant_id`.
+- `/app?demo=1`, the standalone file or the hosted demo → **demo** with scripted scenarios and the AI Brain X-Ray, for videos.
 
-| Pestaña | Qué hace | Endpoint |
+| Tab | What it does | Endpoint |
 |---|---|---|
-| Pipeline | Kanban de 5 columnas (Capturado · Calificado · Visita agendada · Seguimiento 14 días · Cierre/Alerta) | `GET /api/hub/leads` |
-| | Conversación con el motor que respondió cada mensaje | `GET /api/hub/leads/<id>/mensajes` |
-| | vino / no vino / pausa / activar / vendido, y mensaje manual (pausa el bot 2 h) | `POST /api/hub/leads/<id>/comando` |
-| Catálogo | Crear / editar / borrar productos: precios lista y contado, modo de calificación (Crédito/Inicial, Seguro médico, Elegibilidad, B2B), preguntas filtro, condiciones | `GET/POST/PUT/DELETE /api/hub/catalogo` |
-| | Subir fotos, PDF y videos al bucket `catalogo` con su rol (FIRST_INFO, SPECS_PDF, PRICE_OBJECTION, PROOF_RESULTS, VIDEO_TOUR, LOCATION_MAP) | `POST /api/hub/catalogo/<item_id>/media` |
-| Ajustes | WhatsApp del dueño, horario de visitas, silencio nocturno, frases prohibidas, textos de seguimiento ES/EN, mapeo de CRM | `GET/PUT /api/hub/playbook` |
+| Pipeline | 5-column Kanban (Captured · Qualified · Visit booked · 14-day follow-up · Close/Alert) | `GET /api/hub/leads` |
+| | Conversation, tagged with the engine that produced each reply | `GET /api/hub/leads/<id>/mensajes` |
+| | attended / no-show / pause / resume / won, and manual messages (pause the bot for 2 h) | `POST /api/hub/leads/<id>/comando` |
+| Catalog | Create / edit / delete products: list & cash price, qualification mode (financing, medical insurance, eligibility, B2B), filter questions, conditions | `GET/POST/PUT/DELETE /api/hub/catalogo` |
+| | Upload photos, PDFs and videos to the `catalogo` bucket with a role (FIRST_INFO, SPECS_PDF, PRICE_OBJECTION, PROOF_RESULTS, VIDEO_TOUR, LOCATION_MAP) | `POST /api/hub/catalogo/<item_id>/media` |
+| Settings | Owner WhatsApp, visiting hours, night quiet window, forbidden phrases, follow-up texts ES/EN, CRM mapping | `GET/PUT /api/hub/playbook` |
 
-Solo `admin` cambia catálogo y ajustes; `asesor` opera el pipeline. Las subidas se validan por tipo y por contenido
-(firma del archivo) y van a `catalogo/<tenant>/<producto>/…`. Acceso de máquina: `X-Hub-Key` + `X-Tenant-Id`.
+Only `admin` users change the catalog and settings; `asesor` users work the pipeline. Uploads are checked by MIME type and by
+file signature and stored under `catalogo/<tenant>/<product>/…`. Machine access: `X-Hub-Key` + `X-Tenant-Id`.
 
-### Mapeo flexible para CRMs externos (`tenants.crm_field_mapping_json`)
+### Flexible mapping for external CRMs (`tenants.crm_field_mapping_json`)
 
-Vacío = objetos estándar (Salesforce `Product2` + lista de precios estándar y `Lead`; HubSpot `products`/`contacts`;
-Pipedrive `products`/`persons`; Zoho `Products`/`Leads`). Solo se indica lo distinto, sin tocar código:
+Empty = standard objects (Salesforce `Product2` + standard price book and `Lead`; HubSpot `products`/`contacts`;
+Pipedrive `products`/`persons`; Zoho `Products`/`Leads`). Only list what differs; no code changes:
 
 ```json
 {"catalog": {"object": "Property__c", "active_field": "Listed__c",
@@ -104,32 +103,27 @@ Pipedrive `products`/`persons`; Zoho `Products`/`Leads`). Solo se indica lo dist
  "event_attendance": "Attendance__c"}
 ```
 
-Se edita en /app → Ajustes; solo se aceptan nombres de API válidos. El formato anterior `crm_field_map` se sigue leyendo.
+Edited in `/app` → Settings; only valid API names are accepted (prevents SOQL/SQL injection).
 
-## AI Sales Hub: modo API en vivo
+## AI Sales Hub: live API mode
 
-- Sin backend (archivo suelto o el artifact de claude.ai) → datos de demostración, como siempre.
-- Servido por el backend en `GET /hub` (mismo dominio) → usa tu sesión de /app si existe; si no, pide `HUB_API_KEY` + tenant.
-- En otro dominio → botón **⚙** del Hub (URL + clave) y ese dominio en `HUB_CORS_ORIGINS`.
-- Lee y escribe: catálogo (`PATCH` precios/bono/argumento), `POST /api/hub/catalogo/sincronizar`, Kanban (`/api/hub/leads`),
-  acciones vino / no vino / pausa / vendido, y chat con el agente real usando un cliente simulado `hub:+1999…`
-  (no sale nada por WhatsApp/SMS ni se crea la cita en el calendario real).
-- Dentro de claude.ai la página no puede llamar a otros dominios (política del sitio): ahí siempre funciona en modo demo.
-- `python hub/build.py` genera `hub/dist/index.html` y `backend/bot/static/hub.html`.
+- Standalone file or hosted demo → built-in demo data.
+- Served by the backend at `GET /hub` → reuses the `/app` session if there is one; otherwise asks for `HUB_API_KEY` + tenant.
+- Reads and writes the catalog, the Kanban and lead commands, and chats with the real agent through a simulated
+  `hub:+1999…` customer (nothing goes out over WhatsApp/SMS and no real calendar event is created).
+- `python hub/build.py` builds `hub/dist/index.html` and `backend/bot/static/hub.html`.
 
-## Pruebas
+## Tests
 
-`cd backend && python -m pytest -q` → 181 pruebas (79 originales de SAGUE + NLU, motores, colas, adaptadores, Twilio,
-turno completo del agente y guardas por playbook).
+`cd backend && python -m pytest -q` → 181 tests (79 original SAGUE tests + NLU, engines, queues, CRM adapters and mapping,
+Twilio, full agent turn, playbook guardrails, follow-up templates, and the web CRM with an in-memory Supabase).
 
-## Pendiente (siguiente fase)
+## Pending (Next Phase)
 
-- **Plantillas de WhatsApp aprobadas por Meta** para los toques fuera de la ventana de 24 h en modo `catalogo`: hoy pasan al
-  asesor para envío manual (el SMS no tiene ventana y se envía directo).
-- **Recuperar contraseña** del CRM web: hoy se restablece con `scripts/crear_usuario.py` (no hay correo de "olvidé mi clave").
-- **Lead en objeto propio de Salesforce**: el catálogo ya se lee de cualquier objeto; el lead se escribe siempre en `Lead`
-  (con campos configurables).
-- **Pruebas en vivo de cada CRM**: los adaptadores están probados con HTTP simulado; falta probarlos contra una cuenta real de cada CRM.
-- **Salesforce multi-org**: el adaptador usa las credenciales `SF_*` del despliegue (una org por servicio).
-- **Plantillas de WhatsApp vía Twilio** fuera de la ventana de 24 h (Content API): hoy se avisa al asesor para envío manual.
-- **NLU con Gemini en vivo**: probado con respuestas simuladas; medir latencia real con la llave del proyecto (`NLU_PRESUPUESTO_SEG`).
+- **Password reset** for the web CRM: today it is reset with `scripts/crear_usuario.py` (no "forgot password" email).
+- **Leads in a custom Salesforce object**: the catalog can already come from any object; leads are always written to `Lead`
+  (with configurable fields).
+- **Live end-to-end CRM testing**: adapters are tested with mocked HTTP; live testing against a real account for each CRM is pending.
+- **Multi-org Salesforce**: the adapter currently uses deployment-level `SF_*` credentials (one org per service).
+- **WhatsApp templates** outside the 24 h window (Meta and Twilio Content API): currently the rep is alerted to send manually.
+- **Live Gemini NLU**: tested with mocked responses; real latency benchmarking is needed with the project key (`NLU_PRESUPUESTO_SEG`).
